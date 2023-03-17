@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Realsense Camera ROS2 - RGB - Viewer</title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <script src="adapter.js"></script>
+    <script src="webrtc_ros.js"></script>
+    <script src="viewer.js"></script>
+</head>
+
+<body>
+    <h1>Realsense Camera ROS2 - RGB - Viewer</h1>
+    <p>Connection: <span id="status" style="font-weight: bold;">N/A</span></p>
+    <h2 id="topic"></h2>
+
+    <p><a href="/">Back to topic list</a></p>
+    <button id="sendMessageButton" onclick="sendMessage()">Open the Tcp Channel</button>
+    <button id="play-btn">Open Realsense</button>
+    <button id="capture-btn">Capture RGB-D</button>
+
+    <hr />
+    <video id="remote-video" muted="true" preload="none" style="display: none"></video>
+    <script type="text/javascript" src="https://static.robotwebtools.org/roslibjs/current/roslib.min.js"></script>
+
+    <script>
+        let hasRun = false;
+        const playBtn = document.getElementById("play-btn");
+        const videoEl = document.getElementById("remote-video");
+        playBtn.addEventListener("click", () => {
+            if (videoEl.paused) {
+                videoEl.setAttribute("autoplay", true);
+                videoEl.setAttribute("muted", true);
+                videoEl.play();
+                videoEl.style.display = "block";
+                playBtn.textContent = "close Realsense";
+                console.log('Camera Opened');
+            } else {
+                videoEl.removeAttribute("autoplay");
+                videoEl.removeAttribute("muted");
+                videoEl.pause();
+                videoEl.style.display = "none";
+                playBtn.textContent = "Open Realsense";
+                console.log('Camera Closed');
+            }
+        });
+
+        function sendMessage() {
+            if (!hasRun) {
+                window.runSendMessage && window.runSendMessage("ros2 launch rosbridge_server rosbridge_websocket_launch.xml");
+                hasRun = true;
+            }
+            setTimeout(function () {
+                try {
+                    const captureBtn = document.getElementById('capture-btn');
+                    const ros = new ROSLIB.Ros({ url: 'ws://192.168.2.123:9090' });
+                    // When the Rosbridge server connects, fill the span with id “status" with “successful"
+                    ros.on('connection', () => {
+                        document.getElementById("status").innerHTML = "successful";
+                    });
+
+                    // When the Rosbridge server experiences an error, fill the “status" span with the returned error
+                    ros.on('error', (error) => {
+                        document.getElementById("status").innerHTML = `errored out (${error})`;
+                    });
+
+                    // When the Rosbridge server shuts down, fill the “status" span with “closed"
+                    ros.on('close', () => {
+                        document.getElementById("status").innerHTML = "closed";
+                    });
+
+                    // Create a service client to call the ROS2 launch service:
+                    var launchClient = new ROSLIB.Service({
+                        ros: ros,
+                        name: '/launch',
+                        serviceType: 'tutorial_interfaces/srv/LaunchCommands'
+                    });
+
+                    //Create a function to call the launch service and pass the launch command as a string
+                    function launchCommand() {
+                        var request = new ROSLIB.ServiceRequest({
+                            command: "ros2 run pointcloud_server image_publisher &"
+                        });
+                        launchClient.callService(request, function (result) {
+                            console.log('Result: ' + result.success);
+                        });
+                    };
+
+
+                    captureBtn.addEventListener("click", () => {
+                        // Create a listener for /my_topic
+                        const rgb_listener = new ROSLIB.Topic({
+                            ros,
+                            name: "/image",
+                            messageType: "sensor_msgs/msg/Image"
+                        });
+
+                        // Create a listener for /my_topic
+                        const depth_listener = new ROSLIB.Topic({
+                            ros,
+                            name: "/depth",
+                            messageType: "sensor_msgs/msg/Image"
+                        });
+                        // When we receive a message on /my_topic, add its data as a list item to the “messages" ul
+                        rgb_listener.subscribe((message) => {
+                            console.log('RGB: ' + message.data);
+                            rgb_listener.unsubscribe();
+                        });
+
+                        // When we receive a message on /my_topic, add its data as a list item to the “messages" ul
+                        depth_listener.subscribe((message) => {
+                            console.log('Depth: ' + message.data);
+                            depth_listener.unsubscribe();
+                        });
+                    });
+                } catch (err) {
+                    if (err instanceof ROSLIB.WebSocketClosedError) {
+                        console.error("Error: Websocket closed");
+                    } else {
+                        console.error("Error:", err)
+                    }
+                }
+            }, 1500);
+        };
+    </script>
+</body>
+
+</html>
