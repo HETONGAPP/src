@@ -233,7 +233,22 @@ void WebrtcClient::topic_callback(
   // std::vector<uint8_t> binary_data;
   std::cout << typeid(msg->data).name() << std::endl;
   std::cout << msg->header.frame_id << std::endl;
-  std::vector<unsigned char> uchar_vec(msg->data.begin(), msg->data.end());
+  std::vector<unsigned int> uint_vec;
+
+  // combine each set of four uint8_t values into one unsigned int
+  for (size_t i = 0; i < msg->data.size(); i += 4) {
+    unsigned int val = (static_cast<unsigned int>(msg->data[i]) << 24) |
+                       (static_cast<unsigned int>(msg->data[i + 1]) << 16) |
+                       (static_cast<unsigned int>(msg->data[i + 2]) << 8) |
+                       (static_cast<unsigned int>(msg->data[i + 3]));
+    uint_vec.push_back(val);
+  }
+
+  // print the converted vector
+  for (auto val : uint_vec) {
+    std::cout << val << " ";
+  }
+  std::cout << std::endl;
   // std::cout << unsigned(msg->data[3]) << std::endl;
   // binary_data.resize(msg->width * sizeof(pcl::PointXYZ));
   // memcpy(binary_data.data(), msg->data.data(), binary_data.size());
