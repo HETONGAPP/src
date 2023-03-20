@@ -4,11 +4,6 @@
 #include <webrtc_ros/webrtc_client.h>
 #include <webrtc_ros/webrtc_ros_message.h>
 //#include "talk/media/devices/devicemanager.h"
-#include <webrtc/api/video/video_source_interface.h>
-#include <webrtc/rtc_base/bind.h>
-#include <webrtc_ros/ros_video_capturer.h>
-#include <webrtc_ros_msgs/srv/get_ice_servers.hpp>
-
 #include <chrono>
 #include <cstdlib>
 #include <future>
@@ -16,11 +11,27 @@
 #include <string>
 #include <sys/wait.h>
 #include <thread>
+#include <typeinfo>
 #include <unistd.h>
+#include <webrtc/api/video/video_source_interface.h>
+#include <webrtc/rtc_base/bind.h>
+#include <webrtc_ros/ros_video_capturer.h>
+#include <webrtc_ros_msgs/srv/get_ice_servers.hpp>
+
+#include <algorithm>
+#include <librealsense2/rs.hpp>
+#include <memory>
+#include <pcl/filters/filter.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <sensor_msgs/image_encodings.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <string>
 using namespace std::chrono_literals;
-
+using std::placeholders::_1;
 namespace webrtc_ros {
-
+using std::placeholders::_1;
 WebrtcClientObserverProxy::WebrtcClientObserverProxy(
     WebrtcClientWeakPtr client_weak)
     : client_weak_(client_weak) {}
@@ -91,6 +102,9 @@ WebrtcClient::WebrtcClient(rclcpp::Node::SharedPtr nh,
   worker_thread_->Start();
 
   it_ = std::make_shared<image_transport::ImageTransport>(nh);
+
+  subscription_ = nh_->create_subscription<sensor_msgs::msg::PointCloud2>(
+      "point_cloud", 10, std::bind(&WebrtcClient::topic_callback, this, _1));
 
   peer_connection_factory_ = webrtc::CreatePeerConnectionFactory(
       worker_thread_.get(), worker_thread_.get(), worker_thread_.get(), nullptr,
@@ -212,6 +226,23 @@ void WebrtcClient::ping_timer_callback() {
       invalidate();
     }
   }
+}
+
+void WebrtcClient::topic_callback(
+    sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+  // std::vector<uint8_t> binary_data;
+  std::cout << typeid(msg->data).name() << std::endl;
+  std::cout << msg->header.frame_id << std::endl;
+  std::vector<unsigned char> uchar_vec(msg->data.begin(), msg->data.end());
+  // std::cout << unsigned(msg->data[3]) << std::endl;
+  // binary_data.resize(msg->width * sizeof(pcl::PointXYZ));
+  // memcpy(binary_data.data(), msg->data.data(), binary_data.size());
+  // std::string str(binary_data.begin(), binary_data.begin() + 3);
+  // std::cout << binary_data.empty() << std::endl;
+  // webrtc::DataBuffer buf(binary_data, true);
+  // if (!data_channel_->Send(buf)) {
+  //   std::cout << "[error] send message failed" << std::endl;
+  // }
 }
 
 class DummySetSessionDescriptionObserver

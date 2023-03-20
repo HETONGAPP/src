@@ -94,9 +94,18 @@ int main(int argc, char *argv[]) {
     std::vector<int> indices;
     pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
 
+    std::vector<uint8_t> binary_data;
     // Publish the point cloud data
     sensor_msgs::msg::PointCloud2 point_cloud;
     pcl::toROSMsg(*cloud, point_cloud);
+    binary_data.resize(cloud->size() * sizeof(pcl::PointXYZ));
+    std::cout << cloud->size() << std::endl;
+    memcpy(binary_data.data(), point_cloud.data.data(), binary_data.size());
+    // for (auto byte : binary_data) {
+    //   std::cout << std::hex << std::setfill('0') << std::setw(2) << (int)byte
+    //             << " ";
+    // }
+    // std::cout << std::endl;
     point_cloud.header.frame_id = "realsense_camera";
     point_cloud.header.stamp = node->now();
     point_cloud_publisher->publish(point_cloud);

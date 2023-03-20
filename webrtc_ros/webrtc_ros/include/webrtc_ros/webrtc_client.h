@@ -18,12 +18,12 @@
 
 #include <webrtc/media/base/adapted_video_track_source.h>
 
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <webrtc/media/engine/multiplex_codec_factory.h>
 #include <webrtc/rtc_base/thread.h>
 #include <webrtc_ros/configure_message.h>
 #include <webrtc_ros/image_transport_factory.h>
 #include <webrtc_ros/webrtc_web_server.h>
-
 namespace webrtc_ros {
 
 class WebrtcClient;
@@ -80,6 +80,7 @@ private:
   bool initPeerConnection();
 
   void ping_timer_callback();
+  void topic_callback(sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
   void handle_message(MessageHandler::Type type, const std::string &message);
 
@@ -113,7 +114,7 @@ private:
   rtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection_;
   rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel_;
   std::map<std::string, std::map<std::string, std::string>> expected_streams_;
-
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
   rclcpp::TimerBase::SharedPtr ping_timer_;
 
   int rosBridgeFlag_ = 0;

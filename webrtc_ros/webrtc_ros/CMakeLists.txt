@@ -11,7 +11,9 @@ find_package(webrtc_ros_msgs REQUIRED)
 find_package(webrtc REQUIRED)
 find_package(X11 REQUIRED)
 find_package(jsoncpp REQUIRED)
-
+find_package(realsense2 REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common io filters)
+find_package(sensor_msgs REQUIRED)
 
 ###########
 ## Build ##
@@ -23,6 +25,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${webrtc_ros_msgs_INCLUDE_DIRS}
   ${webrtc_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
   
 )
 add_definitions(${webrtc_DEFINITIONS})
@@ -57,6 +60,7 @@ ament_target_dependencies(
     rclcpp
     std_msgs
     webrtc_ros_msgs
+    sensor_msgs
     
 )
 
@@ -64,7 +68,9 @@ target_link_libraries(${PROJECT_NAME}_server_node
   ${webrtc_LIBRARIES}
   webrtc
   jsoncpp_lib
+  realsense2::realsense2
   ${X11_LIBRARIES}
+  ${PCL_LIBRARIES}
 )
 
 set_target_properties(${PROJECT_NAME}_server_node PROPERTIES COMPILE_OPTIONS "-std=c++17")
