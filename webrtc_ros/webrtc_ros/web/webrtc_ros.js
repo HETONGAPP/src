@@ -43,7 +43,97 @@ window.WebrtcRos = (function() {
 		this.signalingChannel.onclose = function() {
 			console.log("WebRTC signaling connection closed");
 		};
+		
 		this.peerConnection = new RTCPeerConnection(this.peerConnectionConfiguration, this.peerConnectionMediaConstraints);
+		
+		var dataChannelOptions = {
+			ordered: true, // 順序を保証する
+			maxPacketLifeTime: 3000 // ミリ秒
+		  };
+		this.sendChannel = this.peerConnection.createDataChannel("data label",dataChannelOptions);
+    	this.sendChannel.onopen = function(event) {
+        	console.log("*** Channel Send Funcion Has Opened ***");
+    	};
+    	this.sendChannel.onclose = function(event) {
+        	console.log("*** Channel Send Funcion Closed ***");
+    	};
+    	this.sendChannel.onerror = function(event) {console.log(event.error);};
+
+
+		// Set up the Three.js scene
+		const scene = new THREE.Scene();
+		const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+		camera.position.z = 5;
+		const renderer = new THREE.WebGLRenderer();
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		document.body.appendChild(renderer.domElement);
+	
+		// Create a material and geometry for the cubes
+		const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+		const geometry = new THREE.BoxGeometry(0.01, 0.01, 0.01);
+
+		// Add event listeners for mouse interaction
+		let isDragging = false;
+		let lastMouseX = 0;
+		let lastMouseY = 0;
+		renderer.domElement.addEventListener('mousedown', event => {
+			isDragging = true;
+			lastMouseX = event.clientX;
+			lastMouseY = event.clientY;
+		});
+		renderer.domElement.addEventListener('mousemove', event => {
+			if (isDragging) {
+				const deltaX = event.clientX - lastMouseX;
+				const deltaY = event.clientY - lastMouseY;
+				camera.rotation.y += deltaX * 0.01;
+				camera.rotation.x += deltaY * 0.01;
+				lastMouseX = event.clientX;
+				lastMouseY = event.clientY;
+			}
+		});
+		renderer.domElement.addEventListener('mouseup', event => {
+			isDragging = false;
+		});
+
+		this.sendChannel.addEventListener('message', event => {
+			console.log("*** receive: ", event.data);
+			try {
+			  // Parse the JSON data to a JavaScript object
+			  const json_obj = JSON.parse(event.data);
+			
+			  // Add a cube for each point in the data channel message
+			  for (const point of json_obj) {
+				const cube = new THREE.Mesh(geometry, material);
+				cube.position.set(point.x, point.y, point.z);
+				scene.add(cube);
+			  }
+		  
+			  // Render the scene
+			  renderer.render(scene, camera);
+			  for (const cube of scene.children) {
+				scene.remove(cube);
+			  }
+			} catch (error) {
+			  console.error("Failed to parse JSON data: ", error);
+			  // Handle parse error
+			}
+		});
+		  
+		
+		this.peerConnection.ondatachannel = function(event) {
+			this.receiveChannel = event.channel;
+			this.receiveChannel.onmessage = function(event) {
+				console.log("*** receive: ",event.data);
+			};
+			this.receiveChannel.onopen = function(event) {
+				console.log("*** Channel Receive Funcion Has Opened ***");
+			};
+			this.receiveChannel.onclose = function(event) {
+				console.log("*** Channel Received Funcion Closed ***");
+			}
+			this.receiveChannel.onerror = function(err){console.log(err);};
+		};
+
 		this.peerConnection.onicecandidate = function(event) {
 			if (event.candidate) {
 				var candidate = {
@@ -55,6 +145,7 @@ window.WebrtcRos = (function() {
 				self.signalingChannel.send(JSON.stringify(candidate));
 			}
 		};
+
 		this.peerConnection.ontrack = function(event) {
 			var callbackData = self.addStreamCallbacks[event.streams[0].id];
 			if (callbackData) {
@@ -79,29 +170,7 @@ window.WebrtcRos = (function() {
 				});
 			}
 		};
-
-		this.sendChannel = this.peerConnection.createDataChannel("sendChannel");
-    	this.sendChannel.onopen = function(event) {
-        	console.log("*** Channel Send Funcion Has Opened ***");
-    	};
-    	this.sendChannel.onclose = function(event) {
-        	console.log("*** Channel Send Funcion Closed ***");
-    	};
-    	this.sendChannel.onerror = function(event) {console.log(err);};
-
-		this.peerConnection.ondatachannel = function(event) {
-			receiveChannel = event.channel;
-			receiveChannel.onmessage = function(event) {
-				console.log("*** receive: ",event.data);
-			};
-			receiveChannel.onopen = function(event) {
-				console.log("*** Channel Receive Funcion Has Opened ***");
-			};
-			receiveChannel.onclose = function(event) {
-				console.log("*** Channel Received Funcion Closed ***");
-			}
-			receiveChannel.onerror = function(err){console.log(err);};
-		};
+		
 	};
 	WebrtcRosConnection.prototype.close = function() {
 		if (this.peerConnection) {

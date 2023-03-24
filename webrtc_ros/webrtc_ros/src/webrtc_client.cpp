@@ -4,10 +4,21 @@
 #include <webrtc_ros/webrtc_client.h>
 #include <webrtc_ros/webrtc_ros_message.h>
 //#include "talk/media/devices/devicemanager.h"
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <future>
 #include <iostream>
+#include <librealsense2/rs.hpp>
+#include <memory>
+#include <nlohmann/json.hpp>
+#include <pcl/filters/filter.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <sensor_msgs/image_encodings.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <string>
 #include <sys/wait.h>
 #include <thread>
@@ -15,19 +26,9 @@
 #include <unistd.h>
 #include <webrtc/api/video/video_source_interface.h>
 #include <webrtc/rtc_base/bind.h>
+#include <webrtc_ros/ros_pcl_capturer.h>
 #include <webrtc_ros/ros_video_capturer.h>
 #include <webrtc_ros_msgs/srv/get_ice_servers.hpp>
-
-#include <algorithm>
-#include <librealsense2/rs.hpp>
-#include <memory>
-#include <pcl/filters/filter.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <sensor_msgs/image_encodings.hpp>
-#include <sensor_msgs/msg/image.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <string>
 using namespace std::chrono_literals;
 using std::placeholders::_1;
 namespace webrtc_ros {
@@ -103,9 +104,6 @@ WebrtcClient::WebrtcClient(rclcpp::Node::SharedPtr nh,
 
   it_ = std::make_shared<image_transport::ImageTransport>(nh);
 
-  subscription_ = nh_->create_subscription<sensor_msgs::msg::PointCloud2>(
-      "point_cloud", 10, std::bind(&WebrtcClient::topic_callback, this, _1));
-
   peer_connection_factory_ = webrtc::CreatePeerConnectionFactory(
       worker_thread_.get(), worker_thread_.get(), worker_thread_.get(), nullptr,
       webrtc::CreateBuiltinAudioEncoderFactory(),
@@ -124,6 +122,8 @@ WebrtcClient::WebrtcClient(rclcpp::Node::SharedPtr nh,
   }
   ping_timer_ = nh_->create_wall_timer(
       10.0s, std::bind(&WebrtcClient::ping_timer_callback, this));
+
+  ros_PCL_ = std::make_shared<RosPCLCapturer>(nh_, "point_cloud");
 }
 WebrtcClient::~WebrtcClient() {
   if (valid()) {
@@ -190,7 +190,9 @@ bool WebrtcClient::initPeerConnection() {
     data_channel_ =
         peer_connection_->CreateDataChannel("data label", &data_channel_config);
     data_channel_->RegisterObserver(webrtc_observer_proxy_.get());
-
+    data_channel_ptr =
+        std::make_shared<rtc::scoped_refptr<webrtc::DataChannelInterface>>(
+            data_channel_);
     return true;
   } else {
     return true;
@@ -226,38 +228,6 @@ void WebrtcClient::ping_timer_callback() {
       invalidate();
     }
   }
-}
-
-void WebrtcClient::topic_callback(
-    sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-  // std::vector<uint8_t> binary_data;
-  std::cout << typeid(msg->data).name() << std::endl;
-  std::cout << msg->header.frame_id << std::endl;
-  std::vector<unsigned int> uint_vec;
-
-  // combine each set of four uint8_t values into one unsigned int
-  for (size_t i = 0; i < msg->data.size(); i += 4) {
-    unsigned int val = (static_cast<unsigned int>(msg->data[i]) << 24) |
-                       (static_cast<unsigned int>(msg->data[i + 1]) << 16) |
-                       (static_cast<unsigned int>(msg->data[i + 2]) << 8) |
-                       (static_cast<unsigned int>(msg->data[i + 3]));
-    uint_vec.push_back(val);
-  }
-
-  // print the converted vector
-  for (auto val : uint_vec) {
-    std::cout << val << " ";
-  }
-  std::cout << std::endl;
-  // std::cout << unsigned(msg->data[3]) << std::endl;
-  // binary_data.resize(msg->width * sizeof(pcl::PointXYZ));
-  // memcpy(binary_data.data(), msg->data.data(), binary_data.size());
-  // std::string str(binary_data.begin(), binary_data.begin() + 3);
-  // std::cout << binary_data.empty() << std::endl;
-  // webrtc::DataBuffer buf(binary_data, true);
-  // if (!data_channel_->Send(buf)) {
-  //   std::cout << "[error] send message failed" << std::endl;
-  // }
 }
 
 class DummySetSessionDescriptionObserver
@@ -379,6 +349,19 @@ void WebrtcClient::handle_message(MessageHandler::Type type,
                 peer_connection_factory_->CreateVideoTrack(track_id, capturer));
             stream->AddTrack(video_track);
             capturer->Start();
+
+            // RCLCPP_DEBUG_STREAM(nh_->get_logger(),
+            //                     "Subscribe the pointcloud data: "
+            //                         << "/point_cloud");
+
+            // auto capturer1 =
+            //     std::make_shared<RosPCLCapturer>(nh_, "point_cloud");
+            // RCLCPP_WARN(nh_->get_logger(),
+            //             "111111111111111111111111111111111111111");
+            // capturer1->Start();
+            // RCLCPP_WARN(nh_->get_logger(),
+            //             "22222222222222222222222222222222222222");
+
           } else {
             RCLCPP_WARN_STREAM(nh_->get_logger(),
                                "Unknown video source type: " << video_type);
@@ -561,12 +544,15 @@ void WebrtcClient::OnDataChannel(
 void WebrtcClient::OnMessage(const webrtc::DataBuffer &buffer) {
   auto message = std::string(buffer.data.data<char>(), buffer.data.size());
   std::cout << "[info] message is:" << message << std::endl;
-  // std::string mess = data_channel_ ? "The ROSBridge Server Status: OK"
-  //                                  : "The ROSBridge Server Status: Failed";
+
+  //启动异步任务，不阻塞构造函数
+  // std::async(std::launch::async, [&]() { ros_PCL_->Start(data_channel_); });
+  ros_PCL_->Start(data_channel_);
+  // std::async(std::launch::async, [=]() { ros_PCL_->Start(data_channel_); });
+  // std::string mess = "ssssssssssssssssssssssssssssssss";
   // webrtc::DataBuffer buf(mess);
   // data_channel_->Send(buf);
-
-  this->CallRosBridgeServer(message);
+  // this->CallRosBridgeServer(message);
 }
 void WebrtcClient::CallRosBridgeServer(const std::string &cmd) {
 
@@ -576,12 +562,6 @@ void WebrtcClient::CallRosBridgeServer(const std::string &cmd) {
   std::sprintf(command, "pgrep %s",
                process_name);   // create the command to execute
   int result = system(command); // execute the command
-  // if (result == 0) {
-  //   std::cout << "Process " << process_name << " exists." << std::endl;
-  // } else {
-  //   std::cout << "Process " << process_name << " does not exist." <<
-  //   std::endl;
-  // }
   if (result == 0)
     return;
   std::thread th([=]() {
@@ -591,7 +571,6 @@ void WebrtcClient::CallRosBridgeServer(const std::string &cmd) {
                        : "Call the Rosbridge server failed!");
   });
   th.detach();
-  // rosBridgeFlag_ = 1;
 }
 
 void WebrtcClient::OnStateChange() {

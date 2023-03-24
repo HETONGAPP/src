@@ -4,6 +4,7 @@
 #include <image_transport/image_transport.hpp>
 #include <rclcpp/rclcpp.hpp>
 
+#include "webrtc_ros/ros_pcl_capturer.h"
 #include <webrtc/api/audio_codecs/builtin_audio_decoder_factory.h>
 #include <webrtc/api/audio_codecs/builtin_audio_encoder_factory.h>
 #include <webrtc/api/audio_options.h>
@@ -36,7 +37,7 @@ class WebrtcClientObserverProxy
       public webrtc::DataChannelObserver {
 public:
   WebrtcClientObserverProxy(WebrtcClientWeakPtr client_weak);
-
+  // void OnBufferedAmountChange(uint64_t sent_data_size) override;
   void OnSuccess(webrtc::SessionDescriptionInterface *) override;
   void OnFailure(webrtc::RTCError error) override;
   void OnAddStream(rtc::scoped_refptr<webrtc::MediaStreamInterface>) override;
@@ -80,7 +81,6 @@ private:
   bool initPeerConnection();
 
   void ping_timer_callback();
-  void topic_callback(sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
   void handle_message(MessageHandler::Type type, const std::string &message);
 
@@ -89,7 +89,7 @@ private:
   void OnAddRemoteStream(rtc::scoped_refptr<webrtc::MediaStreamInterface>);
   void OnRemoveRemoteStream(rtc::scoped_refptr<webrtc::MediaStreamInterface>);
   void OnIceCandidate(const webrtc::IceCandidateInterface *);
-
+  // void OnBufferedAmountChange(uint64_t sent_data_size);
   // Here is for data channel
   void
   OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel);
@@ -113,12 +113,11 @@ private:
   rtc::scoped_refptr<WebrtcClientObserverProxy> webrtc_observer_proxy_;
   rtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection_;
   rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel_;
+  std::shared_ptr<rtc::scoped_refptr<webrtc::DataChannelInterface>>
+      data_channel_ptr;
   std::map<std::string, std::map<std::string, std::string>> expected_streams_;
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
   rclcpp::TimerBase::SharedPtr ping_timer_;
-
-  int rosBridgeFlag_ = 0;
-
+  std::shared_ptr<RosPCLCapturer> ros_PCL_;
   friend WebrtcClientObserverProxy;
   friend MessageHandlerImpl;
 };

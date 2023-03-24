@@ -3,13 +3,15 @@
 #include <librealsense2/rs.hpp>
 #include <memory>
 #include <pcl/filters/filter.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/filters/radius_outlier_removal.h>
+#include <pcl/filters/voxel_grid.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/image_encodings.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <string>
-
 using PointT = pcl::PointXYZRGB;
 using PointCloudT = pcl::PointCloud<PointT>;
 
@@ -70,6 +72,12 @@ int main(int argc, char *argv[]) {
     // Convert the depth and color images to a point cloud
     rs2::points points = rs2::pointcloud().calculate(depth_frame);
     PointCloudT::Ptr cloud(new PointCloudT);
+    // Create a new point cloud to store the downsampled data
+    PointCloudT::Ptr cloud_downsampled(new PointCloudT);
+
+    // Create a voxel grid filter object
+    pcl::VoxelGrid<PointT> sor;
+
     for (const rs2::vertex *vertex = points.get_vertices();
          vertex < points.get_vertices() + points.size(); vertex++) {
       PointT pt;
@@ -80,8 +88,8 @@ int main(int argc, char *argv[]) {
           reinterpret_cast<const uint8_t *>(color_frame.get_data());
       const size_t width = color_frame.get_width();
       const size_t height = color_frame.get_height();
-      const float x_norm = (vertex->x + 0.5f) / width;
-      const float y_norm = (vertex->y + 0.5f) / height;
+      const float x_norm = (vertex->x + 0.7f) / width;
+      const float y_norm = (vertex->y + 0.7f) / height;
       const int x = static_cast<int>(x_norm * vertex->x);
       const int y = static_cast<int>(y_norm * vertex->y);
       pt.r = color[3 * (y * width + x) + 0];
@@ -90,17 +98,33 @@ int main(int argc, char *argv[]) {
       cloud->push_back(pt);
     }
 
+    // Set the input cloud for the filter
+    sor.setInputCloud(cloud);
+
+    // Set the voxel grid size
+    sor.setLeafSize(0.07f, 0.07f, 0.07f);
+
+    sor.filter(*cloud_downsampled);
+
+    pcl::PassThrough<PointT> pass;
+    pass.setInputCloud(cloud_downsampled);
+    pass.setFilterFieldName("z");
+    pass.setFilterLimits(0.0, 1.5);
+
+    PointCloudT::Ptr cloud_filtered(new PointCloudT);
+    pass.filter(*cloud_filtered);
+    // std::cout << cloud_downsampled->size() << std::endl;
     // Remove NaN values from the point cloud
     std::vector<int> indices;
-    pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
+    pcl::removeNaNFromPointCloud(*cloud_filtered, *cloud_filtered, indices);
 
-    std::vector<uint8_t> binary_data;
+    // std::vector<uint8_t> binary_data;
     // Publish the point cloud data
     sensor_msgs::msg::PointCloud2 point_cloud;
-    pcl::toROSMsg(*cloud, point_cloud);
-    binary_data.resize(cloud->size() * sizeof(pcl::PointXYZ));
-    std::cout << cloud->size() << std::endl;
-    memcpy(binary_data.data(), point_cloud.data.data(), binary_data.size());
+    pcl::toROSMsg(*cloud_filtered, point_cloud);
+    // binary_data.resize(cloud->size() * sizeof(pcl::PointXYZ));
+    // // std::cout << cloud->size() << std::endl;
+    // memcpy(binary_data.data(), point_cloud.data.data(), binary_data.size());
     // for (auto byte : binary_data) {
     //   std::cout << std::hex << std::setfill('0') << std::setw(2) << (int)byte
     //             << " ";
@@ -109,6 +133,14 @@ int main(int argc, char *argv[]) {
     point_cloud.header.frame_id = "realsense_camera";
     point_cloud.header.stamp = node->now();
     point_cloud_publisher->publish(point_cloud);
+
+    // 检查话题是否有订阅者
+    size_t num_subscribers = node->count_subscribers("point_cloud");
+
+    // 输出订阅者数量
+    // std::cout << "Number of subscribers: " << num_subscribers << std::endl;
+    std::cout << "Number of subscribers: " << cloud_filtered->size()
+              << std::endl;
   });
 
   rclcpp::spin(node);

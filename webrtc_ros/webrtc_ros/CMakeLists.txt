@@ -14,6 +14,7 @@ find_package(jsoncpp REQUIRED)
 find_package(realsense2 REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io filters)
 find_package(sensor_msgs REQUIRED)
+find_package(nlohmann_json 3.2.0  REQUIRED)
 
 ###########
 ## Build ##
@@ -39,6 +40,7 @@ add_executable(${PROJECT_NAME}_server_node
   src/image_transport_factory.cpp
   src/ros_video_capturer.cpp
   src/ros_video_renderer.cpp
+  src/ros_pcl_capturer.cpp
   src/sdp_message.cpp
   src/webrtc_client.cpp
   src/webrtc_ros_message.cpp
@@ -71,6 +73,7 @@ target_link_libraries(${PROJECT_NAME}_server_node
   realsense2::realsense2
   ${X11_LIBRARIES}
   ${PCL_LIBRARIES}
+  nlohmann_json::nlohmann_json
 )
 
 set_target_properties(${PROJECT_NAME}_server_node PROPERTIES COMPILE_OPTIONS "-std=c++17")
