@@ -5,8 +5,10 @@
 #include <pcl/filters/filter.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl/filters/radius_outlier_removal.h>
+#include <pcl/filters/random_sample.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/point_types.h>
+#include <pcl/sample_consensus/ransac.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/image_encodings.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -77,7 +79,6 @@ int main(int argc, char *argv[]) {
 
     // Create a voxel grid filter object
     pcl::VoxelGrid<PointT> sor;
-
     for (const rs2::vertex *vertex = points.get_vertices();
          vertex < points.get_vertices() + points.size(); vertex++) {
       PointT pt;
@@ -97,50 +98,51 @@ int main(int argc, char *argv[]) {
       pt.b = color[3 * (y * width + x) + 2];
       cloud->push_back(pt);
     }
+    pcl::RandomSample<PointT> rs;
+    if (cloud->size() > 1000) {
+      // Set the input cloud for the filter
+      // sor.setInputCloud(cloud);
 
-    // Set the input cloud for the filter
-    sor.setInputCloud(cloud);
+      // // Set the voxel grid size
+      // sor.setLeafSize(0.03f, 0.03f, 0.03f);
 
-    // Set the voxel grid size
-    sor.setLeafSize(0.07f, 0.07f, 0.07f);
+      // sor.filter(*cloud_downsampled);
 
-    sor.filter(*cloud_downsampled);
+      // Set the input cloud for the filter
+      rs.setInputCloud(cloud);
 
-    pcl::PassThrough<PointT> pass;
-    pass.setInputCloud(cloud_downsampled);
-    pass.setFilterFieldName("z");
-    pass.setFilterLimits(0.0, 1.5);
+      // Set the ratio of points to be randomly selected
+      rs.setSample(10000);
 
-    PointCloudT::Ptr cloud_filtered(new PointCloudT);
-    pass.filter(*cloud_filtered);
-    // std::cout << cloud_downsampled->size() << std::endl;
-    // Remove NaN values from the point cloud
-    std::vector<int> indices;
-    pcl::removeNaNFromPointCloud(*cloud_filtered, *cloud_filtered, indices);
+      // Apply the filter to obtain the downsampled point cloud
+      rs.filter(*cloud_downsampled);
+      pcl::PassThrough<PointT> pass;
+      pass.setInputCloud(cloud_downsampled);
+      pass.setFilterFieldName("z");
+      pass.setFilterLimits(0.0, 1.0);
 
-    // std::vector<uint8_t> binary_data;
+      PointCloudT::Ptr cloud_filtered(new PointCloudT);
+      pass.filter(*cloud_filtered);
+      cloud->swap(*cloud_filtered);
+      // Remove NaN values from the point cloud
+      std::vector<int> indices;
+      pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
+    }
+
     // Publish the point cloud data
     sensor_msgs::msg::PointCloud2 point_cloud;
-    pcl::toROSMsg(*cloud_filtered, point_cloud);
-    // binary_data.resize(cloud->size() * sizeof(pcl::PointXYZ));
-    // // std::cout << cloud->size() << std::endl;
-    // memcpy(binary_data.data(), point_cloud.data.data(), binary_data.size());
-    // for (auto byte : binary_data) {
-    //   std::cout << std::hex << std::setfill('0') << std::setw(2) << (int)byte
-    //             << " ";
-    // }
-    // std::cout << std::endl;
+    pcl::toROSMsg(*cloud, point_cloud);
+
     point_cloud.header.frame_id = "realsense_camera";
     point_cloud.header.stamp = node->now();
     point_cloud_publisher->publish(point_cloud);
+    std::cout << "Number of subscribers: " << cloud->size() << std::endl;
 
-    // 检查话题是否有订阅者
-    size_t num_subscribers = node->count_subscribers("point_cloud");
+    // // 检查话题是否有订阅者
+    // size_t num_subscribers = node->count_subscribers("point_cloud");
 
     // 输出订阅者数量
     // std::cout << "Number of subscribers: " << num_subscribers << std::endl;
-    std::cout << "Number of subscribers: " << cloud_filtered->size()
-              << std::endl;
   });
 
   rclcpp::spin(node);

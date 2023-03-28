@@ -23,11 +23,11 @@
 #include <webrtc/rtc_base/event.h>
 #include <webrtc/rtc_base/thread.h>
 
+#include <vector>
 #include <webrtc/api/create_peerconnection_factory.h>
 #include <webrtc/api/media_stream_interface.h>
 #include <webrtc/api/peer_connection_interface.h>
 #include <webrtc/pc/peer_connection_factory.h>
-
 namespace webrtc_ros {
 class RosPCLCapturerImpl;
 
@@ -40,6 +40,10 @@ public:
   void Start(rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel);
 
   void Stop();
+
+  std::vector<std::string>
+  splitPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
+  void processPointCloud(pcl::PointCloud<pcl::PointXYZRGB> &cloud);
 
 private:
   RTC_DISALLOW_COPY_AND_ASSIGN(RosPCLCapturer);

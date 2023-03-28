@@ -47,8 +47,8 @@ window.WebrtcRos = (function() {
 		this.peerConnection = new RTCPeerConnection(this.peerConnectionConfiguration, this.peerConnectionMediaConstraints);
 		
 		var dataChannelOptions = {
-			ordered: true, // 順序を保証する
-			maxPacketLifeTime: 3000 // ミリ秒
+			ordered: true, 
+			maxPacketLifeTime: 3000 
 		  };
 		this.sendChannel = this.peerConnection.createDataChannel("data label",dataChannelOptions);
     	this.sendChannel.onopen = function(event) {
@@ -62,38 +62,44 @@ window.WebrtcRos = (function() {
 
 		// Set up the Three.js scene
 		const scene = new THREE.Scene();
-		const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-		camera.position.z = 5;
+		const camera = new THREE.PerspectiveCamera(-75, window.innerWidth / window.innerHeight, 0.1, 1000);
+		camera.position.z = 2;
 		const renderer = new THREE.WebGLRenderer();
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		document.body.appendChild(renderer.domElement);
 	
 		// Create a material and geometry for the cubes
 		const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-		const geometry = new THREE.BoxGeometry(0.01, 0.01, 0.01);
+		const geometry = new THREE.BoxGeometry(0.006, 0.006, 0.006);
 
 		// Add event listeners for mouse interaction
 		let isDragging = false;
 		let lastMouseX = 0;
 		let lastMouseY = 0;
+		let scrollSpeed = 0.1; // adjust this value to control scroll speed
 		renderer.domElement.addEventListener('mousedown', event => {
-			isDragging = true;
-			lastMouseX = event.clientX;
-			lastMouseY = event.clientY;
+		    isDragging = true;
+		    lastMouseX = event.clientX;
+		    lastMouseY = event.clientY;
 		});
 		renderer.domElement.addEventListener('mousemove', event => {
-			if (isDragging) {
-				const deltaX = event.clientX - lastMouseX;
-				const deltaY = event.clientY - lastMouseY;
-				camera.rotation.y += deltaX * 0.01;
-				camera.rotation.x += deltaY * 0.01;
-				lastMouseX = event.clientX;
-				lastMouseY = event.clientY;
+		    if (isDragging) {
+		        const deltaX = event.clientX - lastMouseX;
+		        const deltaY = event.clientY - lastMouseY;
+		        camera.rotation.y += deltaX * 0.01;
+		        camera.rotation.x += deltaY * 0.01;
+ 		        lastMouseX = event.clientX;
+				 lastMouseY = event.clientY;
 			}
 		});
 		renderer.domElement.addEventListener('mouseup', event => {
-			isDragging = false;
+		    isDragging = false;
 		});
+		renderer.domElement.addEventListener('wheel', event => {
+		    const delta = event.deltaY * scrollSpeed;
+		    camera.position.z -= delta;
+		});
+
 
 		this.sendChannel.addEventListener('message', event => {
 			console.log("*** receive: ", event.data);
@@ -122,9 +128,9 @@ window.WebrtcRos = (function() {
 		
 		this.peerConnection.ondatachannel = function(event) {
 			this.receiveChannel = event.channel;
-			this.receiveChannel.onmessage = function(event) {
-				console.log("*** receive: ",event.data);
-			};
+			// this.receiveChannel.onmessage = function(event) {
+			// 	console.log("*** receive: ",event.data);
+			// };
 			this.receiveChannel.onopen = function(event) {
 				console.log("*** Channel Receive Funcion Has Opened ***");
 			};

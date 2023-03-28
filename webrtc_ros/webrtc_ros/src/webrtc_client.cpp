@@ -24,6 +24,7 @@
 #include <thread>
 #include <typeinfo>
 #include <unistd.h>
+#include <webrtc/api/data_channel_interface.h>
 #include <webrtc/api/video/video_source_interface.h>
 #include <webrtc/rtc_base/bind.h>
 #include <webrtc_ros/ros_pcl_capturer.h>
@@ -186,7 +187,11 @@ bool WebrtcClient::initPeerConnection() {
 
     // Here is for the data Channel
     webrtc::DataChannelInit data_channel_config;
-    data_channel_config.ordered = true;
+    // data_channel_config.ordered = true;
+    data_channel_config.ordered = false;
+    data_channel_config.maxRetransmitTime = 5000;
+    // data_channel_config.maxPacketLifeTime = absl::nullopt;
+    // data_channel_config.buffered_amount_low_threshold = 1024 * 1024; // 1 M
     data_channel_ =
         peer_connection_->CreateDataChannel("data label", &data_channel_config);
     data_channel_->RegisterObserver(webrtc_observer_proxy_.get());
