@@ -2,20 +2,105 @@
 #include <chrono>
 #include <librealsense2/rs.hpp>
 #include <memory>
+#include <pcl/compression/octree_pointcloud_compression.h>
 #include <pcl/filters/filter.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl/filters/radius_outlier_removal.h>
 #include <pcl/filters/random_sample.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/sample_consensus/ransac.h>
+#include <pcl/visualization/cloud_viewer.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/image_encodings.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <string>
+
 using PointT = pcl::PointXYZRGB;
 using PointCloudT = pcl::PointCloud<PointT>;
+using cloud_pointer = PointCloudT::Ptr;
+using prevCloud = PointCloudT::Ptr;
+
+std::tuple<int, int, int> RGB_Texture(rs2::video_frame texture,
+                                      rs2::texture_coordinate Texture_XY) {
+  // Get Width and Height coordinates of texture
+  int width = texture.get_width();   // Frame width in pixels
+  int height = texture.get_height(); // Frame height in pixels
+
+  // Normals to Texture Coordinates conversion
+  int x_value = min(max(int(Texture_XY.u * width + .5f), 0), width - 1);
+  int y_value = min(max(int(Texture_XY.v * height + .5f), 0), height - 1);
+
+  int bytes =
+      x_value * texture.get_bytes_per_pixel(); // Get # of bytes per pixel
+  int strides =
+      y_value * texture.get_stride_in_bytes(); // Get line width in bytes
+  int Text_Index = (bytes + strides);
+
+  const auto New_Texture =
+      reinterpret_cast<const uint8_t *>(texture.get_data());
+
+  // RGB components to save in tuple
+  int NT1 = New_Texture[Text_Index];
+  int NT2 = New_Texture[Text_Index + 1];
+  int NT3 = New_Texture[Text_Index + 2];
+
+  return std::tuple<int, int, int>(NT1, NT2, NT3);
+}
+
+//===================================================
+//  PCL_Conversion
+// - Function is utilized to fill a point cloud object with depth and RGB data
+// from a single frame captured using the Realsense.
+//===================================================
+cloud_pointer PCL_Conversion(const rs2::points &points,
+                             const rs2::video_frame &color) {
+
+  // Object Declaration (Point Cloud)
+  cloud_pointer cloud(new PointCloudT);
+
+  // Declare Tuple for RGB value Storage (<t0>, <t1>, <t2>)
+  std::tuple<uint8_t, uint8_t, uint8_t> RGB_Color;
+
+  //================================
+  // PCL Cloud Object Configuration
+  //================================
+  // Convert data captured from Realsense camera to Point Cloud
+  auto sp = points.get_profile().as<rs2::video_stream_profile>();
+
+  cloud->width = static_cast<uint32_t>(sp.width());
+  cloud->height = static_cast<uint32_t>(sp.height());
+  cloud->is_dense = false;
+  cloud->points.resize(points.size());
+
+  auto Texture_Coord = points.get_texture_coordinates();
+  auto Vertex = points.get_vertices();
+
+  // Iterating through all points and setting XYZ coordinates
+  // and RGB values
+  for (int i = 0; i < points.size(); i++) {
+    //===================================
+    // Mapping Depth Coordinates
+    // - Depth data stored as XYZ values
+    //===================================
+    cloud->points[i].x = Vertex[i].x;
+    cloud->points[i].y = Vertex[i].y;
+    cloud->points[i].z = Vertex[i].z;
+
+    // Obtain color texture for specific point
+    RGB_Color = RGB_Texture(color, Texture_Coord[i]);
+
+    // Mapping Color (BGR due to Camera Model)
+    cloud->points[i].r = get<2>(RGB_Color); // Reference tuple<2>
+    cloud->points[i].g = get<1>(RGB_Color); // Reference tuple<1>
+    cloud->points[i].b = get<0>(RGB_Color); // Reference tuple<0>
+  }
+
+  return cloud; // PCL RGB Point Cloud generated
+}
 
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
@@ -39,7 +124,7 @@ int main(int argc, char *argv[]) {
       node->create_publisher<sensor_msgs::msg::PointCloud2>("point_cloud", 10);
 
   // Set up a timer to read frames from the RealSense pipeline and publish them
-  auto timer = node->create_wall_timer(std::chrono::milliseconds(33), [&]() {
+  auto timer = node->create_wall_timer(std::chrono::milliseconds(3), [&]() {
     rs2::frameset frames = pipe.wait_for_frames();
 
     // Publish the depth image
@@ -72,32 +157,63 @@ int main(int argc, char *argv[]) {
     color_publisher->publish(color_image);
 
     // Convert the depth and color images to a point cloud
-    rs2::points points = rs2::pointcloud().calculate(depth_frame);
+    rs2::pointcloud pc;
+    pc.map_to(color_frame);
+    rs2::points points = pc.calculate(depth_frame);
+
     PointCloudT::Ptr cloud(new PointCloudT);
+
+    cloud = PCL_Conversion(points, color_frame);
+
     // Create a new point cloud to store the downsampled data
     PointCloudT::Ptr cloud_downsampled(new PointCloudT);
 
     // Create a voxel grid filter object
     pcl::VoxelGrid<PointT> sor;
-    for (const rs2::vertex *vertex = points.get_vertices();
-         vertex < points.get_vertices() + points.size(); vertex++) {
-      PointT pt;
-      pt.x = vertex->x;
-      pt.y = vertex->y;
-      pt.z = vertex->z;
-      const uint8_t *color =
-          reinterpret_cast<const uint8_t *>(color_frame.get_data());
-      const size_t width = color_frame.get_width();
-      const size_t height = color_frame.get_height();
-      const float x_norm = (vertex->x + 0.7f) / width;
-      const float y_norm = (vertex->y + 0.7f) / height;
-      const int x = static_cast<int>(x_norm * vertex->x);
-      const int y = static_cast<int>(y_norm * vertex->y);
-      pt.r = color[3 * (y * width + x) + 0];
-      pt.g = color[3 * (y * width + x) + 1];
-      pt.b = color[3 * (y * width + x) + 2];
-      cloud->push_back(pt);
-    }
+
+    // for (const rs2::vertex *vertex = points.get_vertices();
+    //      vertex < points.get_vertices() + points.size(); vertex++) {
+    //   PointT pt;
+    //   pt.x = vertex->x;
+    //   pt.y = vertex->y;
+    //   pt.z = vertex->z;
+    //   const uint8_t *color =
+    //       reinterpret_cast<const uint8_t *>(color_frame.get_data());
+    //   const size_t width = color_frame.get_width();
+    //   const size_t height = color_frame.get_height();
+    //   const float x_norm = (vertex->x + 0.7f) / width;
+    //   const float y_norm = (vertex->y + 0.7f) / height;
+    //   const int x = static_cast<int>(x_norm * vertex->x);
+    //   const int y = static_cast<int>(y_norm * vertex->y);
+    //   pt.r = color[3 * (y * width + x) + 0];
+    //   pt.g = color[3 * (y * width + x) + 1];
+    //   pt.b = color[3 * (y * width + x) + 2];
+    //   cloud->push_back(pt);
+    // }
+
+    // Publish the point cloud data
+
+    // // 是否查看压缩信息
+    // bool showStatistics = true;
+    // // 配置文件，如果想看配置文件的详细内容，可以参考:
+    // // /io/include/pcl/compression/compression_profiles.h
+    // pcl::io::compression_Profiles_e compressionProfile =
+    //     pcl::io::MED_RES_ONLINE_COMPRESSION_WITH_COLOR;
+
+    // // 初始化点云压缩器和解压器
+    // pcl::io::OctreePointCloudCompression<pcl::PointXYZRGB>
+    // *PointCloudEncoder; PointCloudEncoder =
+    //     new pcl::io::OctreePointCloudCompression<pcl::PointXYZRGB>(
+    //         compressionProfile, showStatistics);
+    // PointCloudEncoder =
+    //     new pcl::io::OctreePointCloudCompression<pcl::PointXYZRGB>(
+    //         compressionProfile, true, 0.002);
+
+    // // 压缩结果stringstream
+    // std::stringstream compressedData;
+    // PointCloudEncoder->encodePointCloud(cloud->makeShared(), compressedData);
+    // std::cout << compressedData.str().size() << std::endl;
+
     pcl::RandomSample<PointT> rs;
     if (cloud->size() > 1000) {
       // Set the input cloud for the filter
@@ -112,14 +228,14 @@ int main(int argc, char *argv[]) {
       rs.setInputCloud(cloud);
 
       // Set the ratio of points to be randomly selected
-      rs.setSample(10000);
+      rs.setSample(6000);
 
       // Apply the filter to obtain the downsampled point cloud
       rs.filter(*cloud_downsampled);
       pcl::PassThrough<PointT> pass;
       pass.setInputCloud(cloud_downsampled);
       pass.setFilterFieldName("z");
-      pass.setFilterLimits(0.0, 1.0);
+      pass.setFilterLimits(0.5, 1.1);
 
       PointCloudT::Ptr cloud_filtered(new PointCloudT);
       pass.filter(*cloud_filtered);
@@ -128,8 +244,6 @@ int main(int argc, char *argv[]) {
       std::vector<int> indices;
       pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
     }
-
-    // Publish the point cloud data
     sensor_msgs::msg::PointCloud2 point_cloud;
     pcl::toROSMsg(*cloud, point_cloud);
 

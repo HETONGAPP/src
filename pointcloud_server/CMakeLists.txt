@@ -26,7 +26,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(msgpack REQUIRED)
 find_package(realsense2 REQUIRED)
-find_package(PCL REQUIRED COMPONENTS common io filters)
+find_package(PCL REQUIRED COMPONENTS common io filters visualization)
 find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(X11 REQUIRED)
@@ -35,7 +35,7 @@ find_package(image_transport REQUIRED)
 # add executable
 add_executable(web_start src/web_service_start.cpp)
 add_executable(web_stop src/web_service_stop.cpp)
-#add_executable(web_pcl src/point_server.cpp)
+add_executable(web_pcl src/point_server.cpp)
 add_executable(open_cam src/open_realsense_cam.cpp)
 add_executable(launch_realsense src/launch_realsense.cpp include/${PROJECT_NAME}/rgb_image.h include/${PROJECT_NAME}/depth_image.h)
 add_executable(image_publisher src/image_publisher.cpp)
@@ -53,13 +53,13 @@ include_directories(
 # ament target dependencies
 ament_target_dependencies(web_start rclcpp rcl_interfaces)
 ament_target_dependencies(web_stop rclcpp rcl_interfaces)
-#ament_target_dependencies(web_pcl rclcpp rcl_interfaces std_msgs sensor_msgs)
+ament_target_dependencies(web_pcl rclcpp rcl_interfaces std_msgs sensor_msgs image_transport)
 ament_target_dependencies(open_cam rclcpp rcl_interfaces std_msgs sensor_msgs)
 ament_target_dependencies(launch_realsense rclcpp rcl_interfaces std_msgs sensor_msgs)
 ament_target_dependencies(image_publisher rclcpp rcl_interfaces std_msgs sensor_msgs image_transport)
 
 # target link libraries
-#target_link_libraries(web_pcl OpenSSL::SSL OpenSSL::Crypto msgpackc realsense2::realsense2)
+target_link_libraries(web_pcl OpenSSL::SSL OpenSSL::Crypto msgpackc realsense2::realsense2 ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${cv_bridge_LIBRARIES})
 target_link_libraries(open_cam OpenSSL::SSL OpenSSL::Crypto msgpackc realsense2::realsense2 ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${cv_bridge_LIBRARIES})
 target_link_libraries(launch_realsense OpenSSL::SSL OpenSSL::Crypto msgpackc realsense2::realsense2 ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${cv_bridge_LIBRARIES})
 target_link_libraries(image_publisher OpenSSL::SSL OpenSSL::Crypto msgpackc realsense2::realsense2 ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${cv_bridge_LIBRARIES})
@@ -82,7 +82,7 @@ add_definitions(${PCL_DEFINITIONS})
 install(TARGETS
   web_start
   web_stop
-  #web_pcl
+  web_pcl
   open_cam
   launch_realsense
   image_publisher

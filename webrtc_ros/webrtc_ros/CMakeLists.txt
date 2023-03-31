@@ -15,6 +15,7 @@ find_package(realsense2 REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io filters)
 find_package(sensor_msgs REQUIRED)
 find_package(nlohmann_json 3.2.0  REQUIRED)
+find_package(ZLIB REQUIRED)
 
 ###########
 ## Build ##
@@ -74,6 +75,7 @@ target_link_libraries(${PROJECT_NAME}_server_node
   ${X11_LIBRARIES}
   ${PCL_LIBRARIES}
   nlohmann_json::nlohmann_json
+  ZLIB::ZLIB
 )
 
 set_target_properties(${PROJECT_NAME}_server_node PROPERTIES COMPILE_OPTIONS "-std=c++17")

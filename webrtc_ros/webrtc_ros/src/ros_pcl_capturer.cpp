@@ -1,6 +1,7 @@
 #include "webrtc_ros/ros_pcl_capturer.h"
 #include "webrtc/rtc_base/bind.h"
 #include <boost/enable_shared_from_this.hpp>
+#include <cmath>
 #include <cv_bridge/cv_bridge.h>
 #include <nlohmann/json.hpp>
 #include <pcl/io/obj_io.h>
@@ -12,6 +13,8 @@
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <sys/wait.h>
 #include <vector>
+#include <zlib.h>
+
 namespace webrtc_ros {
 
 RosPCLCapturer::RosPCLCapturer(rclcpp::Node::SharedPtr &nh,
@@ -30,71 +33,144 @@ void RosPCLCapturer::Start(
 
 void RosPCLCapturer::Stop() { impl_->Stop(); }
 
-std::vector<std::string> RosPCLCapturer::splitPointCloud(
+std::string RosPCLCapturer::splitPointCloud(
     const sensor_msgs::msg::PointCloud2::SharedPtr &msg) {
   // Split the point cloud into several smaller point clouds
   // ...
-  std::vector<pcl::PointCloud<pcl::PointXYZRGB>> pcl_vec;
+  // std::vector<pcl::PointCloud<pcl::PointXYZRGB>> pcl_vec;
   pcl::PCLPointCloud2 pcl_pc2;
   pcl_conversions::toPCL(*msg, pcl_pc2);
   pcl::PointCloud<pcl::PointXYZRGB> cloud;
   pcl::fromPCLPointCloud2(pcl_pc2, cloud);
 
   // Here are the points for each vector
-  int threshHold = 200;
+  // int threshHold = 200;
 
-  std::vector<nlohmann::json> json_objs;
-  std::vector<std::string> json_strs;
+  // std::vector<nlohmann::json> json_objs;
+  // std::vector<std::string> json_strs;
   nlohmann::json json_obj;
 
   int count = 0;
   for (const auto &point : cloud.points) {
+    if (point.x == 0.0 && point.y == 0.0 && point.z == 0.0)
+      continue;
     nlohmann::json point_obj;
-    point_obj["x"] = point.x;
-    point_obj["y"] = point.y;
-    point_obj["z"] = point.z;
+    point_obj["x"] = int(point.x * 100);
+    point_obj["y"] = int(point.y * 100);
+    point_obj["z"] = int(point.z * 100);
     // point_obj["r"] = point.r;
     // point_obj["g"] = point.g;
     // point_obj["b"] = point.b;
+    point_obj["r"] = (point.r << 16) | (point.g << 8) | point.b;
     json_obj.push_back(point_obj);
-    if (count == 2000) {
-      count = 0;
-      json_objs.push_back(json_obj);
-    }
     count++;
   }
+  // std::cout << "after filterd: " << sizeof(int) <<" "<< sizeof(float) <<
+  // std::endl;
 
-  for (const auto &obj : json_objs) {
-    json_strs.push_back(obj.dump());
-  }
+  // std::cout << "after filterd: " << count << std::endl;
+  std::string json_str = json_obj.dump();
+
+  // std::vector<std::string> json_strs;
+
+  // // Compress the input string
+
+  // std::string input =
+  //     R"([{"x":-22,"y":21,"z":65},{"x":-22,"y":21,"z":65},{"x":-32,"y":19,"z":61},{"x":-28,"y":20,"z":63},{"x":-27,"y":20,"z":63},{"x":-25,"y":20,"z":64},{"x":-20,"y":21,"z":65},{"x":-37,"y":19,"z":59},{"x":-30,"y":20,"z":62},{"x":-24,"y":21,"z":64},{"x":-36,"y":19,"z":59},{"x":-35,"y":19,"z":59},{"x":-34,"y":19,"z":60},{"x":-34,"y":19,"z":60},{"x":-30,"y":20,"z":62},{"x":-31,"y":20,"z":62},{"x":-34,"y":20,"z":60},{"x":-31,"y":20,"z":61},{"x":-28,"y":21,"z":63},{"x":-33,"y":20,"z":60},{"x":-33,"y":20,"z":60},{"x":-30,"y":20,"z":62},{"x":-25,"y":21,"z":64},{"x":-21,"y":22,"z":65},{"x":-26,"y":21,"z":63},{"x":-29,"y":21,"z":62},{"x":-26,"y":21,"z":63},{"x":-33,"y":21,"z":61},{"x":-32,"y":21,"z":61},{"x":-30,"y":21,"z":62},{"x":-29,"y":22,"z":62},{"x":-32,"y":22,"z":61},{"x":-31,"y":22,"z":62},{"x":26,"y":20,"z":50}])";
+  // std::cout << "before Compressed string: " << input.size() << std::endl;
+  // std::string compressed;
+  // uLongf compressed_size = compressBound(input.size());
+  // compressed.resize(compressed_size);
+  // compress((Bytef *)&compressed[0], &compressed_size, (Bytef *)input.c_str(),
+  //          input.size());
+
+  // // Check the actual size of the compressed data
+  // if (compressed_size >= compressed.size()) {
+  //   std::cerr << "Error: compressed data buffer is too small" << std::endl;
+  // }
+
+  // // Shrink the vector to the actual size of the compressed data
+  // compressed.resize(compressed_size);
+
+  // // Output the compressed data
+  // std::cout << "Compressed data size: " << compressed.size() << std::endl;
+  // std::cout << "Compressed data: " << compressed;
+  // // for (int i = 0; i < compressed_size; i++) {
+  // //   std::cout << compressed[i];
+  // // }
+  // std::cout << std::endl;
+  webrtc::DataBuffer buf(json_str);
+  data_channel_->Send(buf);
+  // int count = 0;
+
+  // if (cloud.size() >= 2000) {
+  //   for (const auto &point : cloud.points) {
+  //     if (point.x == 0.0 && point.y == 0.0 && point.z == 0.0)
+  //       continue;
+  //     nlohmann::json point_obj;
+
+  //     point_obj["x"] = point.x;
+  //     point_obj["y"] = point.y;
+  //     point_obj["z"] = point.z;
+  //     // point_obj["r"] = point.r;
+  //     // point_obj["g"] = point.g;
+  //     // point_obj["b"] = point.b;
+  //     json_obj.push_back(point_obj);
+  //     if (count == 2000) {
+  //       count = 0;
+  //       json_objs.push_back(json_obj);
+  //     }
+  //     count++;
+  //   }
+
+  //   for (const auto &obj : json_objs) {
+  //     json_strs.push_back(obj.dump());
+  //   }
+  // } else {
+  //   for (const auto &point : cloud.points) {
+  //     if (point.x == 0.0 && point.y == 0.0 && point.z == 0.0)
+  //       continue;
+  //     nlohmann::json point_obj;
+  //     point_obj["x"] = point.x;
+  //     point_obj["y"] = point.y;
+  //     point_obj["z"] = point.z;
+  //     // point_obj["r"] = point.r;
+  //     // point_obj["g"] = point.g;
+  //     // point_obj["b"] = point.b;
+  //     json_obj.push_back(point_obj);
+  //   }
+  //   json_strs.push_back(json_obj.dump());
+  // }
+
   // std::string json_str = json_obj.dump();
   // webrtc::DataBuffer buf(json_str);
   // this->data_channel_->Send(buf);
   // std::cout << json_obj.size() << std::endl;
 
-  const int kChunkSize = 1024;
-  std::vector<std::string> chunks;
-  for (size_t i = 0; i < json_strs.size(); i++) {
-    chunks.push_back(json_strs[i]);
-  }
+  // const int kChunkSize = 1024;
+  // std::vector<std::string> chunks;
+  // for (size_t i = 0; i < json_strs.size(); i++) {
+  //   chunks.push_back(json_strs[i]);
+  // }
 
-  // Send each chunk over the DataChannel
-  const int kMaxBufferedAmount = 64 * 1024;
-  const int kLowThreshold = 32 * 1024;
-  for (const auto &chunk : chunks) {
-    webrtc::DataBuffer buf(chunk);
-    size_t buffered_amount = data_channel_->buffered_amount();
-    if (buffered_amount >= kMaxBufferedAmount) {
-      // The buffer is full, so wait until the buffered amount falls below the
-      // low threshold before sending the next chunk.
-      while (buffered_amount >= kLowThreshold) {
-        rtc::Thread::Current()->ProcessMessages(1000); // Wait for 10 ms.
-        buffered_amount = data_channel_->buffered_amount();
-      }
-    }
-    data_channel_->Send(buf);
-  }
-  return json_strs;
+  // // Send each chunk over the DataChannel
+  // const int kMaxBufferedAmount = 64 * 1024;
+  // const int kLowThreshold = 32 * 1024;
+  // for (const auto &chunk : chunks) {
+  //   webrtc::DataBuffer buf(chunk);
+  //   size_t buffered_amount = data_channel_->buffered_amount();
+  //   if (buffered_amount >= kMaxBufferedAmount) {
+  //     // The buffer is full, so wait until the buffered amount falls below
+  //     the
+  //     // low threshold before sending the next chunk.
+  //     while (buffered_amount >= kLowThreshold) {
+  //       rtc::Thread::Current()->ProcessMessages(10); // Wait for 10 ms.
+  //       buffered_amount = data_channel_->buffered_amount();
+  //     }
+  //   }
+  //   data_channel_->Send(buf);
+  // }
+  return json_str;
 }
 
 void RosPCLCapturer::processPointCloud(
@@ -106,12 +182,13 @@ void RosPCLCapturer::processPointCloud(
 void RosPCLCapturer::pclCallback(
     const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
 
-  std::future<std::vector<std::string>> result = std::async(
+  std::future<std::string> result = std::async(
       std::launch::async, &RosPCLCapturer::splitPointCloud, this, msg);
   // Wait for the result from splitPointCloud and send it over the data channel
-  std::vector<std::string> a = result.get();
+  std::string a = result.get();
 
-  std::cout << a.size() << std::endl;
+  // std::cout << a.size() << std::endl;
+
   // for (auto d : a) {
   //   webrtc::DataBuffer buf(d);
   //   data_channel_->Send(buf);

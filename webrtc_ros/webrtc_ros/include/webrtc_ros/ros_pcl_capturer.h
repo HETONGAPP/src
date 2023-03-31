@@ -41,7 +41,7 @@ public:
 
   void Stop();
 
-  std::vector<std::string>
+  std::string
   splitPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
   void processPointCloud(pcl::PointCloud<pcl::PointXYZRGB> &cloud);
 

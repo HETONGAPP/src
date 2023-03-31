@@ -189,7 +189,7 @@ bool WebrtcClient::initPeerConnection() {
     webrtc::DataChannelInit data_channel_config;
     // data_channel_config.ordered = true;
     data_channel_config.ordered = false;
-    data_channel_config.maxRetransmitTime = 5000;
+    data_channel_config.maxRetransmitTime = 0;
     // data_channel_config.maxPacketLifeTime = absl::nullopt;
     // data_channel_config.buffered_amount_low_threshold = 1024 * 1024; // 1 M
     data_channel_ =
