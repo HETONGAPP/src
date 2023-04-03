@@ -4,10 +4,17 @@
 <head>
     <title>Realsense Camera ROS2 - RGB - Viewer</title>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="adapter.js"></script>
-    <script src="webrtc_ros.js"></script>
-    <script src="viewer.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" async></script>
+    <script src="https://static.robotwebtools.org/roslibjs/current/roslib.min.js" async></script>
+    <script script type="text/javascript" src="lz4.js" async></script>
+    <script script type="text/javascript" src="zlib.min.js" async></script>
+    <script src="adapter.js" async></script>
+    <script src="webrtc_ros.js" async></script>
+    <script src="viewer.js" async></script>
+    <script type="text/javascript">
+        // Nodejs-like Buffer built-in
+        var Buffer = require('buffer').Buffer
+        var LZ4 = require('lz4')
     </script>
       
 
@@ -26,7 +33,7 @@
 
     <hr />
     <video id="remote-video" muted="true" preload="none" style="display: none"></video>
-    <script type="text/javascript" src="https://static.robotwebtools.org/roslibjs/current/roslib.min.js"></script>
+    
 
     <script>
         let hasRun = false;

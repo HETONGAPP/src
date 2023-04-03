@@ -122,7 +122,7 @@ WebrtcClient::WebrtcClient(rclcpp::Node::SharedPtr nh,
     return;
   }
   ping_timer_ = nh_->create_wall_timer(
-      10.0s, std::bind(&WebrtcClient::ping_timer_callback, this));
+      1.0s, std::bind(&WebrtcClient::ping_timer_callback, this));
 
   ros_PCL_ = std::make_shared<RosPCLCapturer>(nh_, "point_cloud");
 }
@@ -354,18 +354,6 @@ void WebrtcClient::handle_message(MessageHandler::Type type,
                 peer_connection_factory_->CreateVideoTrack(track_id, capturer));
             stream->AddTrack(video_track);
             capturer->Start();
-
-            // RCLCPP_DEBUG_STREAM(nh_->get_logger(),
-            //                     "Subscribe the pointcloud data: "
-            //                         << "/point_cloud");
-
-            // auto capturer1 =
-            //     std::make_shared<RosPCLCapturer>(nh_, "point_cloud");
-            // RCLCPP_WARN(nh_->get_logger(),
-            //             "111111111111111111111111111111111111111");
-            // capturer1->Start();
-            // RCLCPP_WARN(nh_->get_logger(),
-            //             "22222222222222222222222222222222222222");
 
           } else {
             RCLCPP_WARN_STREAM(nh_->get_logger(),

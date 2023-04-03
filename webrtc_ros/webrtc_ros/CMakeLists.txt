@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.5)
 project(webrtc_ros)
 
+
+# 输出CMake安装路径
+message("CMake installation prefix: ${CMAKE_INSTALL_PREFIX}")
+
+# 输出CMake模块路径
+message("CMake module path: ${CMAKE_MODULE_PATH}")
+
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(async_web_server_cpp REQUIRED)

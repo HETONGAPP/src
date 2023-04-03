@@ -122,39 +122,76 @@ window.WebrtcRos = (function () {
     })
 
     this.sendChannel.addEventListener('message', event => {
-      console.log('*** receive: ', event.data)
-      try {
-        // Parse the JSON data to a JavaScript object
-        const json_obj = JSON.parse(event.data)
+      // console.log('*** receive: ', event.data)
 
-        // Add a cube for each point in the data channel message
-        for (const point of json_obj) {
-          var temp = point.r
-          // Create a new color with RGB values from the data
-          const b = ((temp >> 16) & 0xff) / 255
-          const g = ((temp >> 8) & 0xff) / 255
-          const r = (temp & 0xff) / 255
-          const color = new THREE.Color(r, g, b)
-          // point.r / 255,
-          // point.g / 255,
-          // point.b / 255
+      event.data.arrayBuffer().then(function (buffer) {
+        var compressed_data = new Uint8Array(buffer)
+        console.log(compressed_data.length)
+        // var uncompressedArray = compressed_data.byteLength
 
-          // Create a new material with the color
-          const material = new THREE.MeshBasicMaterial({ color: color })
-          const cube = new THREE.Mesh(geometry, material)
-          cube.position.set(point.x / 100, point.y / 100, point.z / 100)
-          scene.add(cube)
+        var uncompressed = Buffer.alloc(compressed_data.length * 3)
+        // 进行解压缩
+        var uncompressedSize = LZ4.decodeBlock(compressed_data, uncompressed)
+        var uncompressedData = String.fromCharCode.apply(
+          null,
+          uncompressed.subarray(0, uncompressedSize)
+        )
+        try {
+          // Parse the JSON data to a JavaScript object
+          console.log('uncompressed data', uncompressedData)
+          const json_obj = JSON.parse(uncompressedData)
+
+          // Add a cube for each point in the data channel message
+          for (const point of json_obj) {
+            var temp = point.r
+            // Create a new color with RGB values from the data
+            const b = ((temp >> 16) & 0xff) / 255
+            const g = ((temp >> 8) & 0xff) / 255
+            const r = (temp & 0xff) / 255
+            const color = new THREE.Color(r, g, b)
+            // point.r / 255,
+            // point.g / 255,
+            // point.b / 255
+
+            // Create a new material with the color
+            const material = new THREE.MeshBasicMaterial({ color: color })
+            const cube = new THREE.Mesh(geometry, material)
+            cube.position.set(point.x / 100, point.y / 100, point.z / 100)
+            scene.add(cube)
+          }
+
+          // Render the scene
+          renderer.render(scene, camera)
+          for (const cube of scene.children) {
+            scene.remove(cube)
+          }
+        } catch (error) {
+          console.error('Failed to parse JSON data: ', error)
+          // Handle parse error
         }
+      })
+      // // 将压缩后的数据转换为Uint8Array
+      // var compressedArray = new Uint8Array(compressedData)
 
-        // Render the scene
-        renderer.render(scene, camera)
-        for (const cube of scene.children) {
-          scene.remove(cube)
-        }
-      } catch (error) {
-        console.error('Failed to parse JSON data: ', error)
-        // Handle parse error
-      }
+      // 创建一个用于存储解压缩数据的数组
+
+      // var input = Buffer.from(compressed_data)
+      // // Initialize the output buffer to its maximum length based on the input data
+      // var output = Buffer.alloc(LZ4.encodeBound(input.length))
+
+      // // block compression (no archive format)
+      // var compressedSize = LZ4.encodeBlock(input, output)
+      // // remove unnecessary bytes
+      // output = output.slice(0, compressedSize)
+
+      // console.log('compressed data', output)
+
+      // // block decompression (no archive format)
+      // var uncompressed = Buffer.alloc(input.length)
+      // var uncompressedSize = LZ4.decodeBlock(output, uncompressed)
+      // uncompressed = uncompressed.slice(0, uncompressedSize)
+
+      // console.log('uncompressed data', uncompressed)
     })
 
     this.peerConnection.ondatachannel = function (event) {

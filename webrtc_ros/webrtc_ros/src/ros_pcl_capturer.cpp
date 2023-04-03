@@ -1,4 +1,5 @@
 #include "webrtc_ros/ros_pcl_capturer.h"
+#include "lz4.h"
 #include "webrtc/rtc_base/bind.h"
 #include <boost/enable_shared_from_this.hpp>
 #include <cmath>
@@ -14,7 +15,6 @@
 #include <sys/wait.h>
 #include <vector>
 #include <zlib.h>
-
 namespace webrtc_ros {
 
 RosPCLCapturer::RosPCLCapturer(rclcpp::Node::SharedPtr &nh,
@@ -69,7 +69,26 @@ std::string RosPCLCapturer::splitPointCloud(
   // std::endl;
 
   // std::cout << "after filterd: " << count << std::endl;
+
   std::string json_str = json_obj.dump();
+
+  // 压缩字符串
+  int max_compressed_size = LZ4_compressBound(json_str.size());
+  std::string compressed_data(max_compressed_size, '\0');
+  int compressed_size =
+      LZ4_compress_default(json_str.data(), compressed_data.data(),
+                           json_str.size(), max_compressed_size);
+
+  // 输出压缩后的数据
+  std::cout << "Original size: " << json_str.size() << std::endl;
+  std::cout << "Compressed size: " << compressed_size << std::endl;
+  // std::cout << "Compressed data: " << compressed_data.substr(0,
+  // compressed_size)
+  //           << std::endl;
+  // 发送二进制数据
+  webrtc::DataBuffer buffer(
+      rtc::CopyOnWriteBuffer(compressed_data.data(), compressed_size), true);
+  data_channel_->Send(buffer);
 
   // std::vector<std::string> json_strs;
 
@@ -99,8 +118,9 @@ std::string RosPCLCapturer::splitPointCloud(
   // //   std::cout << compressed[i];
   // // }
   // std::cout << std::endl;
-  webrtc::DataBuffer buf(json_str);
-  data_channel_->Send(buf);
+  // webrtc::DataBuffer buf(json_str);
+  // data_channel_->Send(buf);
+
   // int count = 0;
 
   // if (cloud.size() >= 2000) {
