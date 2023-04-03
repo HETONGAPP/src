@@ -228,7 +228,7 @@ int main(int argc, char *argv[]) {
       rs.setInputCloud(cloud);
 
       // Set the ratio of points to be randomly selected
-      rs.setSample(10000);
+      rs.setSample(5000);
 
       // Apply the filter to obtain the downsampled point cloud
       rs.filter(*cloud_downsampled);

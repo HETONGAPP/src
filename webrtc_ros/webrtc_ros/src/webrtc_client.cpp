@@ -122,7 +122,7 @@ WebrtcClient::WebrtcClient(rclcpp::Node::SharedPtr nh,
     return;
   }
   ping_timer_ = nh_->create_wall_timer(
-      1.0s, std::bind(&WebrtcClient::ping_timer_callback, this));
+      10.0s, std::bind(&WebrtcClient::ping_timer_callback, this));
 
   ros_PCL_ = std::make_shared<RosPCLCapturer>(nh_, "point_cloud");
 }

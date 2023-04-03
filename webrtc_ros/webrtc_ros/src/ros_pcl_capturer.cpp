@@ -73,23 +73,26 @@ std::string RosPCLCapturer::splitPointCloud(
   std::string json_str = json_obj.dump();
 
   // 压缩字符串
-  int max_compressed_size = LZ4_compressBound(json_str.size());
-  std::string compressed_data(max_compressed_size, '\0');
-  int compressed_size =
-      LZ4_compress_default(json_str.data(), compressed_data.data(),
-                           json_str.size(), max_compressed_size);
+  // int max_compressed_size = LZ4_compressBound(json_str.size());
+  // std::string compressed_data(max_compressed_size, '\0');
+  // int compressed_size =
+  //     LZ4_compress_default(json_str.data(), compressed_data.data(),
+  //                          json_str.size(), max_compressed_size);
 
-  // 输出压缩后的数据
-  std::cout << "Original size: " << json_str.size() << std::endl;
-  std::cout << "Compressed size: " << compressed_size << std::endl;
+  // // 输出压缩后的数据
+  // std::cout << "Original size: " << json_str.size() << std::endl;
+  // std::cout << "Compressed size: " << compressed_size << std::endl;
   // std::cout << "Compressed data: " << compressed_data.substr(0,
   // compressed_size)
   //           << std::endl;
   // 发送二进制数据
-  webrtc::DataBuffer buffer(
-      rtc::CopyOnWriteBuffer(compressed_data.data(), compressed_size), true);
+  // webrtc::DataBuffer buffer(
+  //     rtc::CopyOnWriteBuffer(compressed_data.data(), compressed_size), true);
+  // webrtc::DataBuffer buffer(
+  //     rtc::CopyOnWriteBuffer(compressed_data.data(), compressed_size), true);
+  // data_channel_->Send(buffer);
+  webrtc::DataBuffer buffer(json_str);
   data_channel_->Send(buffer);
-
   // std::vector<std::string> json_strs;
 
   // // Compress the input string

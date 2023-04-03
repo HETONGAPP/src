@@ -6,17 +6,61 @@
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" async></script>
     <script src="https://static.robotwebtools.org/roslibjs/current/roslib.min.js" async></script>
-    <script script type="text/javascript" src="lz4.js" async></script>
-    <script script type="text/javascript" src="zlib.min.js" async></script>
-    <script src="adapter.js" async></script>
-    <script src="webrtc_ros.js" async></script>
-    <script src="viewer.js" async></script>
+    <!-- <script script type="text/javascript" src="lz4.js"></script>
+    <script script type="text/javascript" src="zlib.min.js"></script> -->
+    <script type="text/javascript">
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+          // 移动设备
+          var script = document.createElement('script');
+          var script1 = document.createElement('script');
+        //   var script2 = document.createElement('script');
+        //   var script3 = document.createElement('script');
+          script.src = 'https://static.robotwebtools.org/roslibjs/current/roslib.min.js';
+          script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+        //   script2.src = 'https://raw.githubusercontent.com/HETONGAPP/ziplib/main/lz4.js';
+        //   script3.src = 'https://raw.githubusercontent.com/HETONGAPP/ziplib/main/zlib.min.js';
+          document.head.appendChild(script);
+          document.head.appendChild(script1);
+        //   document.head.appendChild(script2);
+        //   document.head.appendChild(script3);
+        //   var Buffer = require('buffer').Buffer;
+        //   var LZ4 = require('lz4');
+        } else {
+          // 台式机
+          var script = document.createElement('script');
+          var script1 = document.createElement('script');
+        //   var script2 = document.createElement('script');
+        //   var script3 = document.createElement('script');
+          script.async = true;
+          script1.async = true;
+        //   script2.async = true;
+        //   script3.async = true;
+          script.type = 'text/javascript';
+            script1.type = 'text/javascript';
+            // script2.type = 'text/javascript';
+            // script3.type = 'text/javascript';
+          script.src = 'https://static.robotwebtools.org/roslibjs/current/roslib.min.js';
+          script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+        //   script2.src = 'https://raw.githubusercontent.com/HETONGAPP/ziplib/main/lz4.js';
+        //   script3.src = 'https://raw.githubusercontent.com/HETONGAPP/ziplib/main/zlib.min.js';
+          document.head.appendChild(script);
+          document.head.appendChild(script1);
+        //   document.head.appendChild(script2);
+        //   document.head.appendChild(script3);
+        //   var Buffer = require('buffer').Buffer;
+        //   var LZ4 = require('lz4');
+        }
+    </script>
     <script type="text/javascript">
         // Nodejs-like Buffer built-in
         var Buffer = require('buffer').Buffer
         var LZ4 = require('lz4')
     </script>
       
+    <script src="adapter.js"></script>
+    <script src="webrtc_ros.js"></script>
+    <script src="viewer.js"></script>
+    
 
 </head>
 
