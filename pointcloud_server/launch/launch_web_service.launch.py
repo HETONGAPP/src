@@ -9,12 +9,19 @@ def generate_launch_description():
     )
 
     service2 = launch_ros.actions.Node(
-        package='cpp_srvcli',
+        package='pointcloud_server',
         executable='web_stop',
         name='launch_stop'
     )
 
+    service3 = launch_ros.actions.Node(
+        package='pointcloud_server',
+        executable='open_cam',
+        name='realsense_camera'
+    )
+
     return launch.LaunchDescription([
         service1,
-        service2
+        service2,
+        service3
     ])

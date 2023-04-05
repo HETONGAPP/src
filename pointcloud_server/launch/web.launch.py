@@ -11,9 +11,15 @@ def generate_launch_description():
             '/home/tong/ros2_ws/src/pointcloud_server/launch/launch_web_service.launch.py'
         )
     )
+    webrtc_ros = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            '/home/tong/ros2_ws/src/webrtc_ros/webrtc_ros/launch/webrtc_ros_server.launch.py'
+        )
+    )
 
     return LaunchDescription([
         web_service,
+        webrtc_ros,
         IncludeLaunchDescription(
             launch_description_source = xml_file_path,
         )

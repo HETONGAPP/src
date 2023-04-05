@@ -95,7 +95,7 @@ private:
   OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel);
   void OnStateChange();
   void OnMessage(const webrtc::DataBuffer &buffer);
-  void CallRosBridgeServer(const std::string &cmd);
+  void CallRosBridgeServer();
 
   rclcpp::Node::SharedPtr nh_;
   std::shared_ptr<image_transport::ImageTransport> it_;

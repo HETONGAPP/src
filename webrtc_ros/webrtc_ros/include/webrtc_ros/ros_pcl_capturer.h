@@ -34,21 +34,30 @@ class RosPCLCapturerImpl;
 class RosPCLCapturer {
 public:
   RosPCLCapturer(rclcpp::Node::SharedPtr &nh, const std::string &topic);
+
   ~RosPCLCapturer();
+
   void pclCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
   void Start(rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel);
 
   void Stop();
 
+  bool GetStatus();
+
   std::string
   splitPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
+
   void processPointCloud(pcl::PointCloud<pcl::PointXYZRGB> &cloud);
 
 private:
   RTC_DISALLOW_COPY_AND_ASSIGN(RosPCLCapturer);
+
   boost::shared_ptr<RosPCLCapturerImpl> impl_;
+
   rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel_;
+
+  bool trigger_ = false;
 };
 
 class RosPCLCapturerImpl
@@ -59,15 +68,20 @@ public:
   void pclCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
   void Start(RosPCLCapturer *capturer);
+
   void Stop();
 
 private:
   RTC_DISALLOW_COPY_AND_ASSIGN(RosPCLCapturerImpl);
 
   rclcpp::Node::SharedPtr nh_;
+
   const std::string topic_;
+
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_;
+
   std::mutex state_mutex_;
+
   RosPCLCapturer *capturer_;
 };
 

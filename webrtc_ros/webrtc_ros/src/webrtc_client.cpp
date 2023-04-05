@@ -103,6 +103,9 @@ WebrtcClient::WebrtcClient(rclcpp::Node::SharedPtr nh,
       worker_thread_(rtc::Thread::CreateWithSocketServer()) {
   worker_thread_->Start();
 
+  // call the ros server
+  CallRosBridgeServer();
+
   it_ = std::make_shared<image_transport::ImageTransport>(nh);
 
   peer_connection_factory_ = webrtc::CreatePeerConnectionFactory(
@@ -536,34 +539,43 @@ void WebrtcClient::OnDataChannel(
 
 void WebrtcClient::OnMessage(const webrtc::DataBuffer &buffer) {
   auto message = std::string(buffer.data.data<char>(), buffer.data.size());
-  std::cout << "[info] message is:" << message << std::endl;
 
-  //启动异步任务，不阻塞构造函数
-  // std::async(std::launch::async, [&]() { ros_PCL_->Start(data_channel_); });
-  ros_PCL_->Start(data_channel_);
-  // std::async(std::launch::async, [=]() { ros_PCL_->Start(data_channel_); });
-  // std::string mess = "ssssssssssssssssssssssssssssssss";
-  // webrtc::DataBuffer buf(mess);
-  // data_channel_->Send(buf);
-  // this->CallRosBridgeServer(message);
+  // call the ros pcl
+
+  if (!ros_PCL_->GetStatus()) {
+    RCLCPP_INFO(nh_->get_logger(), "Starting the ROS PCL ...");
+    ros_PCL_->Start(data_channel_);
+    RCLCPP_INFO(nh_->get_logger(), "ROS PCL has been stated! ");
+  }
 }
-void WebrtcClient::CallRosBridgeServer(const std::string &cmd) {
 
-  const char *process_name =
-      "python3"; // replace with the process name you want to check
-  char command[256];
-  std::sprintf(command, "pgrep %s",
-               process_name);   // create the command to execute
-  int result = system(command); // execute the command
-  if (result == 0)
-    return;
-  std::thread th([=]() {
-    int result = system(cmd.c_str());
-    RCLCPP_INFO(nh_->get_logger(),
-                result ? "Call the Rosbridge server successfully!"
-                       : "Call the Rosbridge server failed!");
-  });
-  th.detach();
+void WebrtcClient::CallRosBridgeServer() {
+
+  // const char *process_name =
+  //     "python3"; // replace with the process name you want to check
+  // char command[256];
+  // std::sprintf(command, "pgrep %s",
+  //              process_name);   // create the command to execute
+  // int result = system(command); // execute the command
+  // if (result == 0)
+  //   return;
+  // std::thread th([=]() {
+  //   std::string str_bridge =
+  //       "ros2 launch rosbridge_server rosbridge_websocket_launch.xml";
+  //   int result_bridge = system(str_bridge.c_str());
+  //   RCLCPP_INFO(nh_->get_logger(),
+  //               result_bridge ? "Call the Rosbridge server successfully!"
+  //                             : "Call the Rosbridge server failed!");
+  // });
+  // std::thread th1([=]() {
+  //   std::string str_service = "ros2 launch launch_web_service.launch.py";
+  //   int result_service = system(str_service.c_str());
+  //   RCLCPP_INFO(nh_->get_logger(), result_service
+  //                                      ? "Call the service successfully!"
+  //                                      : "Call the service failed!");
+  // });
+  // th.detach();
+  // th1.detach();
 }
 
 void WebrtcClient::OnStateChange() {
@@ -578,6 +590,7 @@ void WebrtcClient::OnStateChange() {
     }
   }
 }
+
 void WebrtcClient::OnAddRemoteStream(
     rtc::scoped_refptr<webrtc::MediaStreamInterface> media_stream) {
   std::string stream_id = media_stream->id();

@@ -86,12 +86,19 @@ window.WebrtcRos = (function () {
     )
     camera.position.z = 2
     const renderer = new THREE.WebGLRenderer()
+    renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(window.innerWidth, window.innerHeight)
     document.body.appendChild(renderer.domElement)
 
+    // tone mapping
+    renderer.toneMapping = THREE.NoToneMapping
+
+    renderer.outputEncoding = THREE.sRGBEncoding
+
     // Create a material and geometry for the cubes
     const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-    const geometry = new THREE.BoxGeometry(0.006, 0.006, 0.006)
+    const geometry = new THREE.BoxGeometry(0.005, 0.005, 0.005)
+    // const geometry = new THREE.SphereGeometry(0.005, 16, 16)
 
     // Add event listeners for mouse interaction
     let isDragging = false
@@ -122,7 +129,7 @@ window.WebrtcRos = (function () {
     })
 
     this.sendChannel.addEventListener('message', event => {
-      // console.log('*** receive: ', event.data)
+      console.log('*** receive: ', window.location.host)
       try {
         // Parse the JSON data to a JavaScript object
         // console.log('uncompressed data', event)
@@ -131,19 +138,22 @@ window.WebrtcRos = (function () {
         // Add a cube for each point in the data channel message
         for (const point of json_obj) {
           var temp = point.r
+          var temp1 = point.x
+
+          const x = (temp1 >> 16) & 0xff
+          const y = (temp1 >> 8) & 0xff
+          const z = temp1 & 0xff
+
           // Create a new color with RGB values from the data
           const b = ((temp >> 16) & 0xff) / 255
           const g = ((temp >> 8) & 0xff) / 255
           const r = (temp & 0xff) / 255
           const color = new THREE.Color(r, g, b)
-          // point.r / 255,
-          // point.g / 255,
-          // point.b / 255
 
           // Create a new material with the color
           const material = new THREE.MeshBasicMaterial({ color: color })
           const cube = new THREE.Mesh(geometry, material)
-          cube.position.set(point.x / 100, point.y / 100, point.z / 100)
+          cube.position.set((x - 100) / 100, (y - 100) / 100, (z - 100) / 100)
           scene.add(cube)
         }
 

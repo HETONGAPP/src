@@ -4,59 +4,8 @@
 <head>
     <title>Realsense Camera ROS2 - RGB - Viewer</title>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" async></script>
-    <script src="https://static.robotwebtools.org/roslibjs/current/roslib.min.js" async></script>
-    <!-- <script script type="text/javascript" src="lz4.js"></script>
-    <script script type="text/javascript" src="zlib.min.js"></script> -->
-    <script type="text/javascript">
-        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-          // 移动设备
-          var script = document.createElement('script');
-          var script1 = document.createElement('script');
-        //   var script2 = document.createElement('script');
-        //   var script3 = document.createElement('script');
-          script.src = 'https://static.robotwebtools.org/roslibjs/current/roslib.min.js';
-          script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-        //   script2.src = 'https://raw.githubusercontent.com/HETONGAPP/ziplib/main/lz4.js';
-        //   script3.src = 'https://raw.githubusercontent.com/HETONGAPP/ziplib/main/zlib.min.js';
-          document.head.appendChild(script);
-          document.head.appendChild(script1);
-        //   document.head.appendChild(script2);
-        //   document.head.appendChild(script3);
-        //   var Buffer = require('buffer').Buffer;
-        //   var LZ4 = require('lz4');
-        } else {
-          // 台式机
-          var script = document.createElement('script');
-          var script1 = document.createElement('script');
-        //   var script2 = document.createElement('script');
-        //   var script3 = document.createElement('script');
-          script.async = true;
-          script1.async = true;
-        //   script2.async = true;
-        //   script3.async = true;
-          script.type = 'text/javascript';
-            script1.type = 'text/javascript';
-            // script2.type = 'text/javascript';
-            // script3.type = 'text/javascript';
-          script.src = 'https://static.robotwebtools.org/roslibjs/current/roslib.min.js';
-          script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-        //   script2.src = 'https://raw.githubusercontent.com/HETONGAPP/ziplib/main/lz4.js';
-        //   script3.src = 'https://raw.githubusercontent.com/HETONGAPP/ziplib/main/zlib.min.js';
-          document.head.appendChild(script);
-          document.head.appendChild(script1);
-        //   document.head.appendChild(script2);
-        //   document.head.appendChild(script3);
-        //   var Buffer = require('buffer').Buffer;
-        //   var LZ4 = require('lz4');
-        }
-    </script>
-    <script type="text/javascript">
-        // Nodejs-like Buffer built-in
-        var Buffer = require('buffer').Buffer
-        var LZ4 = require('lz4')
-    </script>
-      
+    <script script type="text/javascript" src="three.min.js"></script>
+    <script script type="text/javascript" src="roslib.min.js"></script>
     <script src="adapter.js"></script>
     <script src="webrtc_ros.js"></script>
     <script src="viewer.js"></script>
@@ -67,20 +16,24 @@
 <body>
     <h1>Realsense Camera ROS2 - RGB - Viewer</h1>
     <p>Connection: <span id="status" style="font-weight: bold;">N/A</span></p>
+    <p>camera status: <span id="cam_status" style="font-weight: bold;">N/A</span></p>
     <h2 id="topic"></h2>
 
     <p><a href="/">Back to topic list</a></p>
-    <button id="sendMessageButton" onclick="sendMessage()">Open the Tcp Channel</button>
-    <button id="play-btn">Open Realsense</button>
-    <button id="capture-btn">Capture RGB-D</button>
-    <button id="PCL-btn">Capture pcl</button>
+    <button id="sendMessageButton" style="font-size: 1.8em;" onclick="sendMessage()">Open the Tcp Channel</button>
+    <button id="play-btn" style="font-size: 1.8em;">Show Image</button>
+    <button id="capture-btn" style="font-size: 1.8em;">Capture RGB-D</button>
+    <button id="PCL-btn" style="font-size: 1.8em;">Capture PCL</button>
+    <button id="Close" style="font-size: 1.8em;">Close Realsense</button>
+    <button id="Open" style="font-size: 1.8em;">Open Realsense</button>
+    <button id="Record" style="font-size: 1.8em;">Record</button>
 
     <hr />
     <video id="remote-video" muted="true" preload="none" style="display: none"></video>
     
 
     <script>
-        let hasRun = false;
+
         const playBtn = document.getElementById("play-btn");
         const videoEl = document.getElementById("remote-video");
         playBtn.addEventListener("click", () => {
@@ -89,28 +42,31 @@
                 videoEl.setAttribute("muted", true);
                 videoEl.play();
                 videoEl.style.display = "block";
-                playBtn.textContent = "close Realsense";
+                playBtn.textContent = "Close Image";
                 console.log('Camera Opened');
             } else {
                 videoEl.removeAttribute("autoplay");
                 videoEl.removeAttribute("muted");
                 videoEl.pause();
                 videoEl.style.display = "none";
-                playBtn.textContent = "Open Realsense";
+                playBtn.textContent = "Show Image";
                 console.log('Camera Closed');
             }
         });
 
         function sendMessage() {
-            //if (!hasRun) {
+            
             window.runSendMessage && window.runSendMessage("ros2 launch rosbridge_server rosbridge_websocket_launch.xml");
-            //    hasRun = true;
-            //}
+            
             setTimeout(function () {
                 try {
+
+                    const ros = new ROSLIB.Ros({ url: 'ws://'+ window.location.hostname+ ':9090' });
                     const captureBtn = document.getElementById('capture-btn');
                     const PCLBtn = document.getElementById('PCL-btn');
-                    const ros = new ROSLIB.Ros({ url: 'ws://192.168.2.123:9090' });
+                    const CloseBtn = document.getElementById('Close');
+                    const OpenBtn = document.getElementById('Open');
+                    // const ros = new ROSLIB.Ros({ url: 'ws://'+ window.location.hostname+ ':9090' });
                     // When the Rosbridge server connects, fill the span with id “status" with “successful"
                     ros.on('connection', () => {
                         document.getElementById("status").innerHTML = "successful";
@@ -129,24 +85,64 @@
                     // Create a service client to call the ROS2 launch service:
                     var launchClient = new ROSLIB.Service({
                         ros: ros,
-                        name: '/launch',
-                        serviceType: 'tutorial_interfaces/srv/LaunchCommands'
+                        name: '/launch_stop',
+                        serviceType: 'pointcloud_server/srv/LaunchCommands'
                     });
-
-                    //Create a function to call the launch service and pass the launch command as a string
+                    //Create a function to calOpenl the launch service and pass the launch command as a string
+                    
                     function launchCommand() {
                         var request = new ROSLIB.ServiceRequest({
-                            command: "ros2 run pointcloud_server image_publisher &"
+                            stop: "killall open_cam &"
                         });
                         launchClient.callService(request, function (result) {
                             console.log('Result: ' + result.success);
+                            if(result.success)
+                            {
+                                document.getElementById("cam_status").innerHTML = "Not Connected"
+                            }
+                            
                         });
                     };
+
+                    CloseBtn.addEventListener("click", () => {
+
+                        launchCommand();
+
+                    });
+
+
+                    // Create a service client to call the ROS2 launch service:
+                    var launchClient1 = new ROSLIB.Service({
+                        ros: ros,
+                        name: '/launch',
+                        serviceType: 'pointcloud_server/srv/LaunchCommands'
+                    });
+                    //Create a function to call the launch1 service and pass the launch command as a string
+                    
+                    function launchCommand1() {
+                        var request = new ROSLIB.ServiceRequest({
+                            command: "ros2 run pointcloud_server open_cam &"
+                        });
+                        launchClient1.callService(request, function (result) {
+                            console.log('Result: ' + result.success);
+                            if(result.success)
+                            {
+                                document.getElementById("cam_status").innerHTML = "Connected"
+                            }
+                        });
+                    };
+
+                    OpenBtn.addEventListener("click", () => {
+
+                        launchCommand1();
+
+                    });
+                    
                     PCLBtn.addEventListener("click", () => {
                         // Create a listener for /my_topic
                         const pcl_listener = new ROSLIB.Topic({
                             ros,
-                            name: "/camera/extrinsics/depth_to_color",
+                            name: "/point_cloud",
                             messageType: "sensor_msgs/msg/PointCloud2"
                         });
                         // When we receive a message on /my_topic, add its data as a list item to the “messages" ul
