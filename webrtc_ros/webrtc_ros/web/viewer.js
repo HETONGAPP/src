@@ -36,6 +36,23 @@ on_ready(function () {
       conn.sendConfigure()
     }
     conn.connect()
+
+    let conn1 = WebrtcRos.createConnection()
+    conn1.onConfigurationNeeded = function () {
+      console.log('Requesting WebRTC video subscription')
+      let config = {}
+      config.video = { id: 'subscribed_video', src: 'ros_image:/depth' }
+      conn1.addRemoteStream(config).then(function (event) {
+        console.log('Connecting WebRTC stream to <video> element')
+        document.getElementById('remote-video1').srcObject = event.stream
+        event.remove.then(function (event) {
+          console.log('Disconnecting WebRTC stream from <video> element')
+          document.getElementById('remote-video1').srcObject = null
+        })
+      })
+      conn1.sendConfigure()
+    }
+    conn1.connect()
     // Expose the sendMessage method
     window.runSendMessage = function (data) {
       conn.sendMessage(data)

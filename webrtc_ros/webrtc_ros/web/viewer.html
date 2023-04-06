@@ -29,13 +29,16 @@
     <button id="Record" style="font-size: 1.8em;">Record</button>
 
     <hr />
-    <video id="remote-video" muted="true" preload="none" style="display: none"></video>
-    
+    <div style="display: flex; justify-content: space-between;">
+        <video id="remote-video" muted="true" preload="none" style="width: 50%;"></video>
+        <video id="remote-video1" muted="true" preload="none" style="width: 50%;"></video>
+      </div>
 
     <script>
 
         const playBtn = document.getElementById("play-btn");
         const videoEl = document.getElementById("remote-video");
+        const videoEl1 = document.getElementById("remote-video1");
         playBtn.addEventListener("click", () => {
             if (videoEl.paused) {
                 videoEl.setAttribute("autoplay", true);
@@ -49,6 +52,21 @@
                 videoEl.removeAttribute("muted");
                 videoEl.pause();
                 videoEl.style.display = "none";
+                playBtn.textContent = "Show Image";
+                console.log('Camera Closed');
+            }
+            if (videoEl1.paused) {
+                videoEl1.setAttribute("autoplay", true);
+                videoEl1.setAttribute("muted", true);
+                videoEl1.play();
+                videoEl1.style.display = "block";
+                playBtn.textContent = "Close Image";
+                console.log('Camera Opened');
+            } else {
+                videoEl1.removeAttribute("autoplay");
+                videoEl1.removeAttribute("muted");
+                videoEl1.pause();
+                videoEl1.style.display = "none";
                 playBtn.textContent = "Show Image";
                 console.log('Camera Closed');
             }

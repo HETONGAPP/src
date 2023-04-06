@@ -16,6 +16,7 @@ window.WebrtcRos = (function () {
     this.peerConnection = null
     this.receiveChannel = null
     this.sendChannel = null
+    this.dataChannelActive = false
     this.peerConnectionMediaConstraints = {
       optional: [{ DtlsSrtpKeyAgreement: true }]
     }
@@ -56,6 +57,9 @@ window.WebrtcRos = (function () {
       this.peerConnectionConfiguration,
       this.peerConnectionMediaConstraints
     )
+
+    if (this.dataChannelActive) {
+    }
 
     var dataChannelOptions = {
       ordered: true,
@@ -334,6 +338,39 @@ window.WebrtcRos = (function () {
     )
   }
   WebrtcRosConnection.prototype.addRemoteStream = function (config) {
+    var stream_id = newStreamId()
+    var self = this
+
+    this.lastConfigureActionPromise = this.lastConfigureActionPromise.then(
+      function (actions) {
+        actions.push({ type: 'add_stream', id: stream_id })
+        if (config.video) {
+          actions.push({
+            type: 'add_video_track',
+            stream_id: stream_id,
+            id: stream_id + '/' + config.video.id,
+            src: config.video.src
+          })
+        }
+        if (config.audio) {
+          actions.push({
+            type: 'add_audio_track',
+            stream_id: stream_id,
+            id: stream_id + '/' + config.audio.id,
+            src: config.audio.src
+          })
+        }
+        return actions
+      }
+    )
+    return new Promise(function (resolve, reject) {
+      self.addStreamCallbacks[stream_id] = {
+        resolve: resolve,
+        reject: reject
+      }
+    })
+  }
+  WebrtcRosConnection.prototype.addRemoteStream1 = function (config) {
     var stream_id = newStreamId()
     var self = this
 
