@@ -62,7 +62,7 @@ window.WebrtcRos = (function () {
     }
 
     var dataChannelOptions = {
-      ordered: true,
+      ordered: false,
       maxPacketLifeTime: 0
     }
     this.sendChannel = this.peerConnection.createDataChannel(
