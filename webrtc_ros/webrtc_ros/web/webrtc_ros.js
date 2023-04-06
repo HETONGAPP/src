@@ -97,7 +97,7 @@ window.WebrtcRos = (function () {
 
     // Create a material and geometry for the cubes
     const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-    const geometry = new THREE.BoxGeometry(0.005, 0.005, 0.005)
+    const geometry = new THREE.BoxGeometry(0.008, 0.008, 0.008)
     // const geometry = new THREE.SphereGeometry(0.005, 16, 16)
 
     // Add event listeners for mouse interaction
