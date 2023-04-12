@@ -113,6 +113,7 @@ private:
   rtc::scoped_refptr<WebrtcClientObserverProxy> webrtc_observer_proxy_;
   rtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection_;
   rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel_;
+  rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel_pcl_file_;
   std::shared_ptr<rtc::scoped_refptr<webrtc::DataChannelInterface>>
       data_channel_ptr;
   std::map<std::string, std::map<std::string, std::string>> expected_streams_;

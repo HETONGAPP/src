@@ -35,21 +35,27 @@ public:
 
       // Publish the depth image
       rs2::depth_frame depth_frame = frames.get_depth_frame();
-      cv::Mat depth_image(cv::Size(640, 480), CV_16UC1,
-                          (void *)depth_frame.get_data(), cv::Mat::AUTO_STEP);
-      sensor_msgs::msg::Image::SharedPtr msg =
-          cv_bridge::CvImage(std_msgs::msg::Header(), "16UC1", depth_image)
-              .toImageMsg();
-      publisher_->publish(*msg);
+      sensor_msgs::msg::Image depth_image;
+      depth_image.header.frame_id = "realsense_camera";
+      depth_image.header.stamp = this->now();
+      depth_image.width = depth_frame.get_width();
+      depth_image.height = depth_frame.get_height();
+      depth_image.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+      depth_image.step = depth_image.width * sizeof(uint16_t);
 
-      // Display depth image in OpenCV window
-      depth_image.convertTo(depth_image, CV_8UC1,
-                            255.0 / 1000.0); // Convert to 8-bit depth image
-      cv::applyColorMap(depth_image, depth_image,
+      cv::Mat depth_(cv::Size(640, 480), CV_16UC1,
+                     (void *)depth_frame.get_data(), cv::Mat::AUTO_STEP);
+      depth_.convertTo(depth_, CV_8UC1,
+                       255.0 / 1000.0); // Convert to 8-bit depth image
+      cv::applyColorMap(depth_, depth_,
                         cv::COLORMAP_JET); // Apply colormap
-      cv::imwrite("depth.png", depth_image);
-      // cv::imshow("RealSense Depth Camera", depth_image);
-      cv::waitKey(1);
+      sensor_msgs::msg::Image::SharedPtr msg =
+          cv_bridge::CvImage(std_msgs::msg::Header(), "rgb8", depth_)
+              .toImageMsg();
+      depth_image.data.resize(depth_image.height * depth_image.step);
+      memcpy(depth_image.data.data(), depth_frame.get_data(),
+             depth_image.data.size());
+      publisher_->publish(*msg);
     });
   }
 

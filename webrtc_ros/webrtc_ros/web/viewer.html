@@ -9,8 +9,6 @@
     <script src="adapter.js"></script>
     <script src="webrtc_ros.js"></script>
     <script src="viewer.js"></script>
-    
-
 </head>
 
 <body>
@@ -20,19 +18,37 @@
     <h2 id="topic"></h2>
 
     <p><a href="/">Back to topic list</a></p>
-    <button id="sendMessageButton" style="font-size: 1.8em;" onclick="sendMessage()">Open the Tcp Channel</button>
-    <button id="play-btn" style="font-size: 1.8em;">Show Image</button>
-    <button id="capture-btn" style="font-size: 1.8em;">Capture RGB-D</button>
-    <button id="PCL-btn" style="font-size: 1.8em;">Capture PCL</button>
-    <button id="Close" style="font-size: 1.8em;">Close Realsense</button>
-    <button id="Open" style="font-size: 1.8em;">Open Realsense</button>
-    <button id="Record" style="font-size: 1.8em;">Record</button>
+
+    <section>
+        <div>
+            <form id="fileInfo">
+                <input type="file" id="fileInput" name="files" />
+            </form>
+            <button disabled id="sendFile">Send</button>
+            <button disabled id="abortButton">Abort</button>
+        </div>
+
+        <div class="progress">
+            <div class="label">Send progress: </div>
+            <progress id="sendProgress" max="0" value="0"></progress>
+        </div>
+    </section>
+
+    <section>
+        <button id="sendMessageButton" style="font-size: 1.8em;" onclick="sendMessage()">Open the Tcp Channel</button>
+        <button id="play-btn" style="font-size: 1.8em;">Show Image</button>
+        <button id="capture-btn" style="font-size: 1.8em;">Capture RGB-D</button>
+        <button id="PCL-btn" style="font-size: 1.8em;">Capture PCL</button>
+        <button id="Close" style="font-size: 1.8em;">Close Realsense</button>
+        <button id="Open" style="font-size: 1.8em;">Open Realsense</button>
+        <button id="Record" style="font-size: 1.8em;">Record</button>
+    </section>
 
     <hr />
     <div style="display: flex; justify-content: space-between;">
         <video id="remote-video" muted="true" preload="none" style="width: 50%;"></video>
         <video id="remote-video1" muted="true" preload="none" style="width: 50%;"></video>
-      </div>
+    </div>
 
     <script>
 
@@ -73,13 +89,13 @@
         });
 
         function sendMessage() {
-            
+
             window.runSendMessage && window.runSendMessage("ros2 launch rosbridge_server rosbridge_websocket_launch.xml");
-            
+
             setTimeout(function () {
                 try {
 
-                    const ros = new ROSLIB.Ros({ url: 'ws://'+ window.location.hostname+ ':9090' });
+                    const ros = new ROSLIB.Ros({ url: 'ws://' + window.location.hostname + ':9090' });
                     const captureBtn = document.getElementById('capture-btn');
                     const PCLBtn = document.getElementById('PCL-btn');
                     const CloseBtn = document.getElementById('Close');
@@ -107,18 +123,17 @@
                         serviceType: 'pointcloud_server/srv/LaunchCommands'
                     });
                     //Create a function to calOpenl the launch service and pass the launch command as a string
-                    
+
                     function launchCommand() {
                         var request = new ROSLIB.ServiceRequest({
                             stop: "killall open_cam &"
                         });
                         launchClient.callService(request, function (result) {
                             console.log('Result: ' + result.success);
-                            if(result.success)
-                            {
+                            if (result.success) {
                                 document.getElementById("cam_status").innerHTML = "Not Connected"
                             }
-                            
+
                         });
                     };
 
@@ -136,15 +151,14 @@
                         serviceType: 'pointcloud_server/srv/LaunchCommands'
                     });
                     //Create a function to call the launch1 service and pass the launch command as a string
-                    
+
                     function launchCommand1() {
                         var request = new ROSLIB.ServiceRequest({
                             command: "ros2 run pointcloud_server open_cam &"
                         });
                         launchClient1.callService(request, function (result) {
                             console.log('Result: ' + result.success);
-                            if(result.success)
-                            {
+                            if (result.success) {
                                 document.getElementById("cam_status").innerHTML = "Connected"
                             }
                         });
@@ -155,7 +169,7 @@
                         launchCommand1();
 
                     });
-                    
+
                     PCLBtn.addEventListener("click", () => {
                         // Create a listener for /my_topic
                         const pcl_listener = new ROSLIB.Topic({

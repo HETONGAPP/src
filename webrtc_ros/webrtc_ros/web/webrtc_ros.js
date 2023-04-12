@@ -17,6 +17,11 @@ window.WebrtcRos = (function () {
     this.receiveChannel = null
     this.sendChannel = null
     this.dataChannelActive = false
+
+    this.fileReader = null
+    this.fileInput = document.querySelector('input#fileInput')
+    this.sendFileButton = document.querySelector('button#sendFile')
+
     this.peerConnectionMediaConstraints = {
       optional: [{ DtlsSrtpKeyAgreement: true }]
     }
@@ -33,6 +38,16 @@ window.WebrtcRos = (function () {
     var message = data
     this.sendChannel.send(message)
   }
+
+  WebrtcRosConnection.prototype.handleFileInputChange = async function () {
+    const file = this.fileInput.files[0]
+    if (!file) {
+      console.log('No file chosen')
+    } else {
+      this.sendFileButton.disabled = false
+    }
+  }
+
   WebrtcRosConnection.prototype.connect = function () {
     var self = this
     this.close()
@@ -57,6 +72,9 @@ window.WebrtcRos = (function () {
       this.peerConnectionConfiguration,
       this.peerConnectionMediaConstraints
     )
+
+    this.sendFileButton.addEventListener('click', () => createConnection())
+    this.fileInput.addEventListener('change', this.handleFileInputChange, false)
 
     if (this.dataChannelActive) {
     }
@@ -133,7 +151,7 @@ window.WebrtcRos = (function () {
     })
 
     this.sendChannel.addEventListener('message', event => {
-      console.log('*** receive: ', window.location.host)
+      // console.log('*** receive: ', window.location.host)
       try {
         // Parse the JSON data to a JavaScript object
         // console.log('uncompressed data', event)
@@ -232,6 +250,9 @@ window.WebrtcRos = (function () {
       this.receiveChannel.onerror = function (err) {
         console.log(err)
       }
+      this.receiveChannel.addEventListener('message', event => {
+        console.log('*** receive: ', event.data)
+      })
     }
 
     this.peerConnection.onicecandidate = function (event) {

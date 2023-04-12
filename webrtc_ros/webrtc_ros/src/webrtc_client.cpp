@@ -195,12 +195,18 @@ bool WebrtcClient::initPeerConnection() {
     data_channel_config.maxRetransmitTime = 0;
     // data_channel_config.maxPacketLifeTime = absl::nullopt;
     // data_channel_config.buffered_amount_low_threshold = 1024 * 1024; // 1 M
-    data_channel_ =
-        peer_connection_->CreateDataChannel("data label", &data_channel_config);
+    data_channel_pcl_file_ = peer_connection_->CreateDataChannel(
+        "data_channel_1", &data_channel_config);
+    data_channel_ = peer_connection_->CreateDataChannel("data_channel_2",
+                                                        &data_channel_config);
+    data_channel_pcl_file_->RegisterObserver(webrtc_observer_proxy_.get());
     data_channel_->RegisterObserver(webrtc_observer_proxy_.get());
     data_channel_ptr =
         std::make_shared<rtc::scoped_refptr<webrtc::DataChannelInterface>>(
             data_channel_);
+    data_channel_pcl_file_ptr =
+        std::make_shared<rtc::scoped_refptr<webrtc::DataChannelInterface>>(
+            data_channel_pcl_file_);
     return true;
   } else {
     return true;
