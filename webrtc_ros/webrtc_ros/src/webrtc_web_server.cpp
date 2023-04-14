@@ -145,6 +145,7 @@ private:
       for (const auto &messageType : topic.second) {
         if (messageType.compare(image_message_type) == 0) {
           image_topics.push_back(realTopic);
+          std::cout << image_topics.size() << std::endl;
         } else if (messageType.compare(camera_info_message_type) == 0) {
           camera_info_topics.push_back(realTopic);
         }
@@ -165,33 +166,34 @@ private:
     // be an issue)
     std::stringstream json;
     json << "{\n\t\"camera_topics\": {";
-    bool first_cam = true;
-    BOOST_FOREACH (const std::string &camera_info_topic, camera_info_topics) {
-      if (boost::algorithm::ends_with(camera_info_topic, "/camera_info")) {
-        std::string base_topic = camera_info_topic.substr(
-            0, camera_info_topic.size() - strlen("camera_info"));
-        if (!first_cam)
-          json << ",";
-        first_cam = false;
-        json << "\n\t\t\"" << base_topic << "\": {\n";
-        bool first = true;
-        std::vector<std::string>::iterator image_topic_itr =
-            image_topics.begin();
-        for (; image_topic_itr != image_topics.end();) {
-          if (boost::starts_with(*image_topic_itr, base_topic)) {
-            if (!first)
-              json << ",\n";
-            first = false;
-            json << "\t\t\t\"" << image_topic_itr->substr(base_topic.size())
-                 << "\": \"" << *image_topic_itr << "\"";
-            image_topic_itr = image_topics.erase(image_topic_itr);
-          } else {
-            ++image_topic_itr;
-          }
-        }
-        json << "\n\t\t}";
-      }
-    }
+    // bool first_cam = true;
+    // BOOST_FOREACH (const std::string &camera_info_topic, camera_info_topics)
+    // {
+    //   if (boost::algorithm::ends_with(camera_info_topic, "/camera_info")) {
+    //     std::string base_topic = camera_info_topic.substr(
+    //         0, camera_info_topic.size() - strlen("camera_info"));
+    //     if (!first_cam)
+    //       json << ",";
+    //     first_cam = false;
+    //     json << "\n\t\t\"" << base_topic << "\": {\n";
+    //     bool first = true;
+    //     std::vector<std::string>::iterator image_topic_itr =
+    //         image_topics.begin();
+    //     for (; image_topic_itr != image_topics.end();) {
+    //       if (boost::starts_with(*image_topic_itr, base_topic)) {
+    //         if (!first)
+    //           json << ",\n";
+    //         first = false;
+    //         json << "\t\t\t\"" << image_topic_itr->substr(base_topic.size())
+    //              << "\": \"" << *image_topic_itr << "\"";
+    //         image_topic_itr = image_topics.erase(image_topic_itr);
+    //       } else {
+    //         ++image_topic_itr;
+    //       }
+    //     }
+    //     json << "\n\t\t}";
+    //   }
+    // }
     json << "\n\t},\n\t\"image_topics\": [\n";
     std::vector<std::string>::iterator image_topic_itr = image_topics.begin();
     for (; image_topic_itr != image_topics.end();) {

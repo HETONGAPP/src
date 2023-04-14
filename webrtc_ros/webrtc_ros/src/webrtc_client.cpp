@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <fstream>
 #include <future>
 #include <iostream>
 #include <librealsense2/rs.hpp>
@@ -32,6 +33,7 @@
 #include <webrtc_ros_msgs/srv/get_ice_servers.hpp>
 using namespace std::chrono_literals;
 using std::placeholders::_1;
+constexpr size_t MAX_BUFFERED_AMOUNT = 262144;
 namespace webrtc_ros {
 using std::placeholders::_1;
 WebrtcClientObserverProxy::WebrtcClientObserverProxy(
@@ -191,22 +193,23 @@ bool WebrtcClient::initPeerConnection() {
     // Here is for the data Channel
     webrtc::DataChannelInit data_channel_config;
     // data_channel_config.ordered = true;
-    data_channel_config.ordered = false;
+    data_channel_config.ordered = true;
     data_channel_config.maxRetransmitTime = 0;
+    data_channel_config.maxRetransmits = 0;
     // data_channel_config.maxPacketLifeTime = absl::nullopt;
     // data_channel_config.buffered_amount_low_threshold = 1024 * 1024; // 1 M
-    data_channel_pcl_file_ = peer_connection_->CreateDataChannel(
-        "data_channel_1", &data_channel_config);
+    // data_channel_pcl_file_ = peer_connection_->CreateDataChannel(
+    //     "data_channel_1", &data_channel_config);
     data_channel_ = peer_connection_->CreateDataChannel("data_channel_2",
                                                         &data_channel_config);
-    data_channel_pcl_file_->RegisterObserver(webrtc_observer_proxy_.get());
+    // data_channel_pcl_file_->RegisterObserver(webrtc_observer_proxy_.get());
     data_channel_->RegisterObserver(webrtc_observer_proxy_.get());
     data_channel_ptr =
         std::make_shared<rtc::scoped_refptr<webrtc::DataChannelInterface>>(
             data_channel_);
-    data_channel_pcl_file_ptr =
-        std::make_shared<rtc::scoped_refptr<webrtc::DataChannelInterface>>(
-            data_channel_pcl_file_);
+    // data_channel_pcl_file_ptr =
+    //     std::make_shared<rtc::scoped_refptr<webrtc::DataChannelInterface>>(
+    //         data_channel_pcl_file_);
     return true;
   } else {
     return true;
@@ -541,17 +544,99 @@ void WebrtcClient::OnDataChannel(
     rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel) {
   data_channel_ = data_channel;
   data_channel_->RegisterObserver(webrtc_observer_proxy_.get());
+  // std::async(std::launch::async, [&]() {
+  // this->sendPCLFile("/home/tong/ros2_ws/cloud.pcd", data_channel_, 16384);
+  // });
 }
 
 void WebrtcClient::OnMessage(const webrtc::DataBuffer &buffer) {
   auto message = std::string(buffer.data.data<char>(), buffer.data.size());
+  // if (message == "upload pcl") {
+  // std::string file_path = "/home/tong/ros2_ws/Captured_Frame1.pcd";
 
+  // this->sendPCLFile(file_path, data_channel_, 16384);
+  // std::cout << "File sent successfully." << std::endl;
+  // }
   // call the ros pcl
-
+  this->sendPCLFile("/home/tong/ros2_ws/cloud1.pcd", data_channel_, 16384);
+  data_channel_->Close();
   if (!ros_PCL_->GetStatus()) {
     RCLCPP_INFO(nh_->get_logger(), "Starting the ROS PCL ...");
     ros_PCL_->Start(data_channel_);
     RCLCPP_INFO(nh_->get_logger(), "ROS PCL has been stated! ");
+  }
+}
+
+void WebrtcClient::sendPCLFile(const std::string &filename,
+                               webrtc::DataChannelInterface *dataChannel,
+                               size_t chunkSize) {
+  // Open the file
+  std::ifstream file(filename, std::ios::binary);
+  if (!file.is_open()) {
+    std::cerr << "Failed to open file: " << filename << std::endl;
+    return;
+  }
+
+  // Get the file size
+  file.seekg(0, std::ios::end);
+  std::streamsize fileSize = file.tellg();
+  file.seekg(0, std::ios::beg);
+
+  // Read the file content and send it in chunks
+  std::vector<char> buffer(chunkSize);
+  size_t bytesSent = 0;
+  std::cout << "file size is : " << fileSize << std::endl;
+
+  while (bytesSent < fileSize) {
+
+    // Calculate the remaining bytes and adjust the chunkSize if necessary
+    size_t remainingBytes = fileSize - bytesSent;
+    if (remainingBytes < chunkSize) {
+      chunkSize = remainingBytes;
+      buffer.resize(chunkSize);
+    }
+
+    // Read a chunk of data from the file
+    if (!file.read(buffer.data(), chunkSize)) {
+      std::cerr << "Failed to read the file: " << filename << std::endl;
+      return;
+    }
+
+    // if (dataChannel->buffered_amount() > fileSize) {
+    //   std::this_thread::sleep_for(
+    //       std::chrono::milliseconds(1)); // Wait for 10 milliseconds
+    //   continue;                          // Retry sending the current
+    // chunk
+    // }
+
+    webrtc::DataBuffer dataBuffer(
+        rtc::CopyOnWriteBuffer(buffer.data(), chunkSize), true);
+    if (!dataChannel->Send(dataBuffer)) {
+      std::cerr << "Failed to send data through the data channel." << std::endl;
+      return;
+    }
+    std::cout << "buffer size : " << dataChannel->buffered_amount()
+              << std::endl;
+    bytesSent += chunkSize;
+
+    if (dataChannel->state() != webrtc::DataChannelInterface::kOpen) {
+      std::cerr
+          << "Data channel is not open. Please ensure the data channel is "
+             "open before sending data."
+          << std::endl;
+      return;
+    }
+  }
+
+  // Send the special 'END_OF_FILE' message
+  std::string endOfFileMessage = "END_OF_FILE";
+  webrtc::DataBuffer eofBuffer(endOfFileMessage, false);
+  if (!dataChannel->Send(eofBuffer)) {
+    std::cerr
+        << "Failed to send the 'END_OF_FILE' message through the datachannel."
+        << std::endl;
+  } else {
+    std::cout << "File sent successfully: " << filename << std::endl;
   }
 }
 

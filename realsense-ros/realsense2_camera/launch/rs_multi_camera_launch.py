@@ -1,4 +1,4 @@
-# Copyright (c) 2018 Intel Corporation
+# Copyright 2023 Intel Corporation. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 # DESCRIPTION #
 # ----------- #
 # Use this launch file to launch 2 devices.
@@ -20,7 +19,7 @@
 # For each device, the parameter name was changed to include an index.
 # For example: to set camera_name for device1 set parameter camera_name1.
 # command line example:
-# ros2 launch realsense2_camera rs_multi_camera_launch.py camera_name1:=my_D435 device_type1:=d435 camera_name2:=my_d415 device_type2:=d415 
+# ros2 launch realsense2_camera rs_multi_camera_launch.py camera_name1:=D400 device_type2:=l5. device_type1:=d4..
 
 """Launch realsense2_camera node."""
 import copy

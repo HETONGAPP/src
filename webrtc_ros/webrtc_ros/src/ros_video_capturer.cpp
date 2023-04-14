@@ -37,9 +37,14 @@ void RosVideoCapturer::imageCallback(
     cv::Mat orig;
     float_image.convertTo(orig, CV_8U);
     cv::cvtColor(orig, bgr, CV_GRAY2BGR);
+  } else if (msg->encoding == "16UC1") {
+    cv::Mat depth(cv_bridge::toCvShare(msg, "16UC1")->image);
+    depth.convertTo(bgr, CV_8UC1, 255.0 / 10000.0);
+    cv::applyColorMap(bgr, bgr, cv::COLORMAP_JET);
   } else {
     bgr = cv_bridge::toCvShare(msg, "bgr8")->image;
   }
+
   int64_t camera_time_us = msg->header.stamp.nanosec / 1000;
   int64_t system_time_us = rclcpp::Clock().now().nanoseconds() / 1000;
   cv::Rect roi;

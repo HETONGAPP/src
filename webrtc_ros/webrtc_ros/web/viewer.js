@@ -41,7 +41,10 @@ on_ready(function () {
     conn1.onConfigurationNeeded = function () {
       console.log('Requesting WebRTC video subscription')
       let config = {}
-      config.video = { id: 'subscribed_video', src: 'ros_image:/depth' }
+      config.video = {
+        id: 'subscribed_video',
+        src: 'ros_image:/depth'
+      }
       conn1.addRemoteStream(config).then(function (event) {
         console.log('Connecting WebRTC stream to <video> element')
         document.getElementById('remote-video1').srcObject = event.stream

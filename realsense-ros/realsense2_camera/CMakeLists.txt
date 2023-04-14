@@ -1,3 +1,17 @@
+# Copyright 2023 Intel Corporation. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 cmake_minimum_required(VERSION 3.5)
 project(realsense2_camera)
 
@@ -56,6 +70,10 @@ if(UNIX OR APPLE)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie")
 endif()
 
+if(WIN32)
+  add_definitions(-D_USE_MATH_DEFINES)
+endif()
+
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
@@ -79,8 +97,8 @@ if(BUILD_WITH_OPENMP)
 endif()
 
 if(SET_USER_BREAK_AT_STARTUP)
-	message("GOT FLAG IN CmakeLists.txt")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBPDEBUG")
+    message("GOT FLAG IN CmakeLists.txt")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBPDEBUG")
 endif()
 
 
@@ -92,14 +110,13 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(realsense2_camera_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(std_srvs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(diagnostic_updater REQUIRED)
 
-find_package(realsense2 2.50.0)
+find_package(realsense2 2.51.1)
 if(NOT realsense2_FOUND)
     message(FATAL_ERROR "\n\n Intel RealSense SDK 2.0 is missing, please install it from https://github.com/IntelRealSense/librealsense/releases\n\n")
 endif()
@@ -112,8 +129,15 @@ set(node_plugins "")
 set(SOURCES
     src/realsense_node_factory.cpp
     src/base_realsense_node.cpp
-    src/t265_realsense_node.cpp
+    src/parameters.cpp
+    src/rs_node_setup.cpp
+    src/ros_sensor.cpp
+    src/ros_utils.cpp
     src/dynamic_params.cpp
+    src/sensor_params.cpp
+    src/named_filter.cpp
+    src/profile_manager.cpp
+    src/image_publisher.cpp
   )
 
 if(NOT DEFINED ENV{ROS_DISTRO})
@@ -135,21 +159,55 @@ elseif("$ENV{ROS_DISTRO}" STREQUAL "galactic")
   message(STATUS "Build for ROS2 Galactic")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGALACTIC")
   set(SOURCES "${SOURCES}" src/ros_param_backend_foxy.cpp)
+elseif("$ENV{ROS_DISTRO}" STREQUAL "humble")
+  message(STATUS "Build for ROS2 Humble")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHUMBLE")
+  set(SOURCES "${SOURCES}" src/ros_param_backend_foxy.cpp)
 elseif("$ENV{ROS_DISTRO}" STREQUAL "rolling")
   message(STATUS "Build for ROS2 Rolling")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROLLING")
-  set(SOURCES "${SOURCES}" src/ros_param_backend_foxy.cpp)
+  set(SOURCES "${SOURCES}" src/ros_param_backend_rolling.cpp)
 else()
   message(FATAL_ERROR "Unsupported ROS Distribution: " "$ENV{ROS_DISTRO}")
 endif()
 
+# The header 'cv_bridge/cv_bridge.hpp' was added in version 3.3.0. For older
+# cv_bridge versions, we have to use the header 'cv_bridge/cv_bridge.h'.
+if(${cv_bridge_VERSION} VERSION_GREATER_EQUAL "3.3.0")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCV_BRDIGE_HAS_HPP")
+endif()
 
-add_library(${PROJECT_NAME} SHARED
+# 'OnSetParametersCallbackType' is only defined for rclcpp 17 and onward.
+if(${rclcpp_VERSION} VERSION_GREATER_EQUAL "17.0")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRCLCPP_HAS_OnSetParametersCallbackType")
+endif()
+
+set(INCLUDES
     include/constants.h
     include/realsense_node_factory.h
     include/base_realsense_node.h
+    include/ros_sensor.h
+    include/ros_utils.h
     include/dynamic_params.h
+    include/sensor_params.h
+    include/named_filter.h
     include/ros_param_backend.h
+    include/profile_manager.h
+    include/image_publisher.h)
+
+
+if (BUILD_TOOLS)
+
+  include_directories(tools)
+  set(INCLUDES ${INCLUDES}
+    tools/frame_latency/frame_latency.h)
+
+  set(SOURCES ${SOURCES}
+    tools/frame_latency/frame_latency.cpp)
+endif()
+
+add_library(${PROJECT_NAME} SHARED
+    ${INCLUDES}
     ${SOURCES}
 )
 
@@ -164,7 +222,6 @@ set(dependencies
   rclcpp_components
   realsense2_camera_msgs
   std_msgs
-  std_srvs
   sensor_msgs
   nav_msgs
   tf2
@@ -182,6 +239,15 @@ rclcpp_components_register_node(${PROJECT_NAME}
   EXECUTABLE realsense2_camera_node
 )
 
+if(BUILD_TOOLS)
+
+  rclcpp_components_register_node(${PROJECT_NAME}
+  PLUGIN "rs2_ros::tools::frame_latency::FrameLatencyNode"
+  EXECUTABLE realsense2_frame_latency_node
+  )
+
+endif()
+
 # Install binaries
 install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION lib
@@ -196,36 +262,14 @@ install(
 )
 
 # Install launch files
-install(DIRECTORY
+install(DIRECTORY 
     launch
-    config
-    rviz
     DESTINATION share/${PROJECT_NAME}
     )
 
 # Test
 if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  find_package(OpenCV REQUIRED)
-
-  ament_lint_auto_find_test_dependencies()
-
-  set(REALSENSE_DEVICE_PLUGIN FALSE)
-  if(${REALSENSE_DEVICE_PLUGIN})
-    ament_add_gtest(test_api test/test_api.cpp)
-  endif()
-  if(TARGET test_api)
-    target_include_directories(test_api PUBLIC
-      ${${PROJECT_NAME}_INCLUDE_DIRS}
-    )
-  ament_target_dependencies(test_api
-    OpenCV
-    rclcpp
-    sensor_msgs
-    nav_msgs
-    tf2
-    tf2_ros)
-  endif()
+# This does nothing for now, note that ROS build farm build with BUILD_TESTING=1
 endif()
 
 # Ament exports

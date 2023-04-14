@@ -18,10 +18,11 @@ window.WebrtcRos = (function () {
     this.sendChannel = null
     this.dataChannelActive = false
 
+    this.receiveBuffer = []
+    // this.receivedSize = 0
     this.fileReader = null
-    this.fileInput = document.querySelector('input#fileInput')
-    this.sendFileButton = document.querySelector('button#sendFile')
-
+    this.receivedDataBuffer = new Uint8Array()
+    this.receivedDataChunks = []
     this.peerConnectionMediaConstraints = {
       optional: [{ DtlsSrtpKeyAgreement: true }]
     }
@@ -73,21 +74,16 @@ window.WebrtcRos = (function () {
       this.peerConnectionMediaConstraints
     )
 
-    this.sendFileButton.addEventListener('click', () => createConnection())
-    this.fileInput.addEventListener('change', this.handleFileInputChange, false)
-
-    if (this.dataChannelActive) {
-    }
-
     var dataChannelOptions = {
-      ordered: false,
+      ordered: true,
       maxPacketLifeTime: 0
     }
     this.sendChannel = this.peerConnection.createDataChannel(
-      'data label',
+      'data_channel_2',
       dataChannelOptions
     )
     this.sendChannel.bufferedAmountLowThreshold = 1024 * 1024 * 16 // 1 MB
+    this.sendChannel.binaryType = 'arraybuffer'
     this.sendChannel.onopen = function (event) {
       console.log('*** Channel Send Funcion Has Opened ***')
     }
@@ -99,6 +95,7 @@ window.WebrtcRos = (function () {
     }
 
     // Set up the Three.js scene
+    // const loader = new THREE.PCDLoader()
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(
       -75,
@@ -149,50 +146,101 @@ window.WebrtcRos = (function () {
       const delta = event.deltaY * scrollSpeed
       camera.position.z -= delta
     })
-
+    let receivedSize = 0
     this.sendChannel.addEventListener('message', event => {
-      // console.log('*** receive: ', window.location.host)
-      try {
-        // Parse the JSON data to a JavaScript object
-        // console.log('uncompressed data', event)
-        const json_obj = JSON.parse(event.data)
+      if (typeof event.data === 'string') {
+        if (event.data === 'END_OF_FILE') {
+          // Handle received file data (e.g., assemble and display the file)
+          const receivedFile = new Blob(self.receivedDataChunks)
+          let url = URL.createObjectURL(receivedFile)
+          let link = document.createElement('a')
+          link.href = url
+          link.download = 'file.pcd'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          URL.revokeObjectURL(url)
+          // Calculate the total size of the received data
+          let totalSize = 0
+          for (const chunk of self.receivedDataChunks) {
+            totalSize += chunk.byteLength
+          }
 
-        // Add a cube for each point in the data channel message
-        for (const point of json_obj) {
-          var temp = point.r
-          var temp1 = point.x
+          console.log(`Received file size: ${totalSize} bytes`)
 
-          const x = (temp1 >> 16) & 0xff
-          const y = (temp1 >> 8) & 0xff
-          const z = temp1 & 0xff
-
-          // Create a new color with RGB values from the data
-          const b = ((temp >> 16) & 0xff) / 255
-          const g = ((temp >> 8) & 0xff) / 255
-          const r = (temp & 0xff) / 255
-          const color = new THREE.Color(r, g, b)
-
-          // Create a new material with the color
-          const material = new THREE.MeshBasicMaterial({ color: color })
-          const cube = new THREE.Mesh(geometry, material)
-          cube.position.set((x - 100) / 100, (y - 100) / 100, (z - 100) / 100)
-          scene.add(cube)
+          // ... Process receivedFile as needed
+          self.receivedDataChunks = [] // Clear the chunks array for the next file transfer
         }
-
-        // Render the scene
-        renderer.render(scene, camera)
-        for (const cube of scene.children) {
-          scene.remove(cube)
-        }
-      } catch (error) {
-        console.error('Failed to parse JSON data: ', error)
-        // Handle parse error
+      } else {
+        // The message is a binary ArrayBuffer, so store it as a chunk
+        self.receivedDataChunks.push(event.data)
+        receivedSize += event.data.byteLength
+        console.log('Received data chunk. Total size: ' + receivedSize)
       }
+      // console.log(`Received ${event.data.size} bytes`)
+      // self.receiveBuffer.push(event.data)
+      // // self.receivedSize += event.data.byteLength
+      // let receivedSizes = event.data.size
+      // receivedSize += 16384
+      // console.log(`Received ${receivedSize} bytes`)
+      // if (receivedSize === 21136635) {
+      //   let blob = new Blob(self.receiveBuffer, {
+      //     type: 'application/octet-stream'
+      //   })
+      //   let url = URL.createObjectURL(blob)
+      //   let link = document.createElement('a')
+      //   link.href = url
+      //   link.download = 'file.pcd'
+      //   document.body.appendChild(link)
+      //   link.click()
+      //   document.body.removeChild(link)
+      //   URL.revokeObjectURL(url)
+      //   receiveBuffer = []
+      //   receivedSize = 0
+      // }
+      // console.log(
+      //   'Received message, buffer size = ' +
+      //     self.receiveBuffer.length +
+      //     ', received size = ' +
+      //     typeof event.data.byteLength
+      // )
+      // 21136635
+      // console.log('*** receive: ', window.location.host)
+      // try {
+      //   // Parse the JSON data to a JavaScript object
+      //   // console.log('uncompressed data', event)
+      //   const json_obj = JSON.parse(event.data)
+      //   // Add a cube for each point in the data channel message
+      //   for (const point of json_obj) {
+      //     var temp = point.r
+      //     var temp1 = point.x
+      //     const x = (temp1 >> 16) & 0xff
+      //     const y = (temp1 >> 8) & 0xff
+      //     const z = temp1 & 0xff
+      //     // Create a new color with RGB values from the data
+      //     const b = ((temp >> 16) & 0xff) / 255
+      //     const g = ((temp >> 8) & 0xff) / 255
+      //     const r = (temp & 0xff) / 255
+      //     const color = new THREE.Color(r, g, b)
+      //     // Create a new material with the color
+      //     const material = new THREE.MeshBasicMaterial({ color: color })
+      //     const cube = new THREE.Mesh(geometry, material)
+      //     cube.position.set((x - 100) / 100, (y - 100) / 100, (z - 100) / 100)
+      //     scene.add(cube)
+      //   }
+      //   // Render the scene
+      //   renderer.render(scene, camera)
+      //   for (const cube of scene.children) {
+      //     scene.remove(cube)
+      //   }
+      // } catch (error) {
+      //   console.error('Failed to parse JSON data: ', error)
+      //   // Handle parse error
+      // }
       // event.data.arrayBuffer().then(function (buffer) {
       //   var compressed_data = new Uint8Array(buffer)
       //   console.log(compressed_data.length)
       //   // var uncompressedArray = compressed_data.byteLength
-
       //   var uncompressed = Buffer.alloc(compressed_data.length * 3)
       //   // 进行解压缩
       //   var uncompressedSize = LZ4.decodeBlock(compressed_data, uncompressed)
@@ -204,7 +252,6 @@ window.WebrtcRos = (function () {
       //     // Parse the JSON data to a JavaScript object
       //     console.log('uncompressed data', uncompressedData)
       //     const json_obj = JSON.parse(uncompressedData)
-
       //     // Add a cube for each point in the data channel message
       //     for (const point of json_obj) {
       //       var temp = point.r
@@ -216,14 +263,12 @@ window.WebrtcRos = (function () {
       //       // point.r / 255,
       //       // point.g / 255,
       //       // point.b / 255
-
       //       // Create a new material with the color
       //       const material = new THREE.MeshBasicMaterial({ color: color })
       //       const cube = new THREE.Mesh(geometry, material)
       //       cube.position.set(point.x / 100, point.y / 100, point.z / 100)
       //       scene.add(cube)
       //     }
-
       //     // Render the scene
       //     renderer.render(scene, camera)
       //     for (const cube of scene.children) {

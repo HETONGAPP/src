@@ -37,7 +37,7 @@ add_executable(web_start src/web_service_start.cpp)
 add_executable(web_stop src/web_service_stop.cpp)
 add_executable(web_pcl src/point_server.cpp)
 add_executable(open_cam src/open_realsense_cam.cpp)
-add_executable(launch_realsense src/launch_realsense.cpp include/${PROJECT_NAME}/rgb_image.h include/${PROJECT_NAME}/depth_image.h)
+add_executable(launch_realsense src/launch_realsense.cpp include/${PROJECT_NAME}/rgb_image.h include/${PROJECT_NAME}/depth_image.h include/${PROJECT_NAME}/point_cloud_image.h)
 add_executable(image_publisher src/image_publisher.cpp)
 
 # include directories

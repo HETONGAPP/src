@@ -96,6 +96,8 @@ private:
   void OnStateChange();
   void OnMessage(const webrtc::DataBuffer &buffer);
   void CallRosBridgeServer();
+  void sendPCLFile(const std::string &filename,
+                   webrtc::DataChannelInterface *dataChannel, size_t chunkSize);
 
   rclcpp::Node::SharedPtr nh_;
   std::shared_ptr<image_transport::ImageTransport> it_;

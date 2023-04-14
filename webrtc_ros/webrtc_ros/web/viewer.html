@@ -7,8 +7,6 @@
     <script script type="text/javascript" src="three.min.js"></script>
     <script script type="text/javascript" src="roslib.min.js"></script>
     <script src="adapter.js"></script>
-    <script src="webrtc_ros.js"></script>
-    <script src="viewer.js"></script>
 </head>
 
 <body>
@@ -20,18 +18,10 @@
     <p><a href="/">Back to topic list</a></p>
 
     <section>
-        <div>
-            <form id="fileInfo">
-                <input type="file" id="fileInput" name="files" />
-            </form>
-            <button disabled id="sendFile">Send</button>
-            <button disabled id="abortButton">Abort</button>
-        </div>
+        <div id="bitrate"></div>
+        <a id="download"></a>
+        <span id="status"></span>
 
-        <div class="progress">
-            <div class="label">Send progress: </div>
-            <progress id="sendProgress" max="0" value="0"></progress>
-        </div>
     </section>
 
     <section>
@@ -49,7 +39,8 @@
         <video id="remote-video" muted="true" preload="none" style="width: 50%;"></video>
         <video id="remote-video1" muted="true" preload="none" style="width: 50%;"></video>
     </div>
-
+    <script src="webrtc_ros.js"></script>
+    <script src="viewer.js"></script>
     <script>
 
         const playBtn = document.getElementById("play-btn");
@@ -100,7 +91,7 @@
                     const PCLBtn = document.getElementById('PCL-btn');
                     const CloseBtn = document.getElementById('Close');
                     const OpenBtn = document.getElementById('Open');
-                    // const ros = new ROSLIB.Ros({ url: 'ws://'+ window.location.hostname+ ':9090' });
+                    // const ros = new ROSLIB.Ros({url: 'ws://'+ window.location.hostname+ ':9090' });
                     // When the Rosbridge server connects, fill the span with id “status" with “successful"
                     ros.on('connection', () => {
                         document.getElementById("status").innerHTML = "successful";

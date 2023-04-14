@@ -7,6 +7,7 @@
 #include <pcl/filters/filter.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <point_cloud_image.h>
 #include <rgb_image.h>
 #include <sensor_msgs/image_encodings.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -31,6 +32,12 @@ void depth_image_thread(rs2::pipeline &pipe) {
   rclcpp::spin(depth_node);
 }
 
+// Create a publisher thread for the depth images
+void pcl_image_thread(rs2::pipeline &pipe) {
+  auto pcl_node = std::make_shared<PCImage>(pipe);
+  rclcpp::spin(pcl_node);
+}
+
 int main(int argc, char *argv[]) {
 
   rclcpp::init(argc, argv);
@@ -46,9 +53,11 @@ int main(int argc, char *argv[]) {
 
   std::thread RGB(RGB_image_thread, std::ref(pipe));
   std::thread depth(depth_image_thread, std::ref(pipe));
+  std::thread pcl(pcl_image_thread, std::ref(pipe));
 
   RGB.join();
   depth.join();
+  pcl.join();
 
   rclcpp::shutdown();
 
